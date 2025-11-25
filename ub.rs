@@ -1,4 +1,5 @@
 use vstd::prelude::*;
+use vstd::pcm::*;
 
 verus! {
 
@@ -10,6 +11,8 @@ verus! {
 // compile-constant `TOTAL`
 pub enum ErrorCreditCarrier<const TOTAL: u64> {
     Value { n: int },
+    Empty,
+    Invalid,
 }
 
 // you can always get 0 error credit
@@ -19,23 +22,34 @@ impl<const TOTAL: u64> ErrorCreditCarrier<TOTAL> {
     }
 }
 
-impl<const TOTAL: u64> ErrorCreditCarrier<TOTAL> {
+impl<const TOTAL: u64> PCM for ErrorCreditCarrier<TOTAL> {
     closed spec fn valid(self) -> bool {
         match self {
             ErrorCreditCarrier::Value { n } => 0 <= n <= TOTAL as int,
+            ErrorCreditCarrier::Empty => true,
+            ErrorCreditCarrier::Invalid => false,
         }
     }
 
     closed spec fn op(self, other: Self) -> Self {
         match (self, other) {
+            (ErrorCreditCarrier::Invalid, _) | (_, ErrorCreditCarrier::Invalid) => {
+                ErrorCreditCarrier::Invalid
+            }
             (ErrorCreditCarrier::Value { n: n1 }, ErrorCreditCarrier::Value { n: n2 }) => {
-                ErrorCreditCarrier::Value { n: n1 + n2 }
+              if n1 < 0 || n2 < 0 {
+                  ErrorCreditCarrier::Invalid
+              } else {
+                  let sum = n1 + n2;
+                  ErrorCreditCarrier::Value { n: sum }
+              }
             },
+            (ErrorCreditCarrier::Empty, other) | (other, ErrorCreditCarrier::Empty) => other,
         }
     }
 
     closed spec fn unit() -> Self {
-        ErrorCreditCarrier::zero()
+        ErrorCreditCarrier::Empty
     }
 
     proof fn closed_under_incl(a: Self, b: Self) {
