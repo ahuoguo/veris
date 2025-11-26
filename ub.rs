@@ -1,5 +1,5 @@
-use vstd::prelude::*;
 use vstd::pcm::*;
+use vstd::prelude::*;
 
 verus! {
 
@@ -7,44 +7,41 @@ verus! {
 // A error credit represents a resource with a non zero value
 // ideally the carrier should be nonnegreal
 // https://logsem.github.io/clutch/clutch.base_logic.error_credits.html
-// TODO: not sure how to get real, but in `frac.rs` they have a
-// compile-constant `TOTAL`
-pub enum ErrorCreditCarrier<const TOTAL: u64> {
-    Value { n: int },
+// ideally the carrier should be nonnegreal, but Verus doesn't have real theory
+// we now model it as a rational number as the division between two integers
+
+// TODO: how to we quotient out the equivalence
+pub enum ErrorCreditCarrier {
+    Value { nom: nat, denom: nat },
     Empty,
     Invalid,
 }
 
 // you can always get 0 error credit
-impl<const TOTAL: u64> ErrorCreditCarrier<TOTAL> {
+impl ErrorCreditCarrier {
     pub closed spec fn zero() -> Self {
-        ErrorCreditCarrier::Value { n: 0 }
+        ErrorCreditCarrier::Value { nom: 0, denom: 1 }
     }
 }
 
-impl<const TOTAL: u64> PCM for ErrorCreditCarrier<TOTAL> {
+impl PCM for ErrorCreditCarrier {
     closed spec fn valid(self) -> bool {
         match self {
-            ErrorCreditCarrier::Value { n } => 0 <= n <= TOTAL as int,
+            ErrorCreditCarrier::Value { nom, denom } => denom > 0 && nom <= denom,
             ErrorCreditCarrier::Empty => true,
             ErrorCreditCarrier::Invalid => false,
         }
     }
 
+    // addition of rational numbers
     closed spec fn op(self, other: Self) -> Self {
         match (self, other) {
-            (ErrorCreditCarrier::Invalid, _) | (_, ErrorCreditCarrier::Invalid) => {
-                ErrorCreditCarrier::Invalid
-            }
-            (ErrorCreditCarrier::Value { n: n1 }, ErrorCreditCarrier::Value { n: n2 }) => {
-              if n1 < 0 || n2 < 0 {
-                  ErrorCreditCarrier::Invalid
-              } else {
-                  let sum = n1 + n2;
-                  ErrorCreditCarrier::Value { n: sum }
-              }
-            },
-            (ErrorCreditCarrier::Empty, other) | (other, ErrorCreditCarrier::Empty) => other,
+            (
+                ErrorCreditCarrier::Value { nom: n1, denom: d1 },
+                ErrorCreditCarrier::Value { nom: n2, denom: d2 },
+            ) => { ErrorCreditCarrier::Value { nom: n1 * d2 + n2 * d1, denom: d1 * d2 } },
+            (ErrorCreditCarrier::Empty, ec) | (ec, ErrorCreditCarrier::Empty) => ec,
+            _ => ErrorCreditCarrier::Invalid,
         }
     }
 
@@ -52,13 +49,39 @@ impl<const TOTAL: u64> PCM for ErrorCreditCarrier<TOTAL> {
         ErrorCreditCarrier::Empty
     }
 
-    proof fn closed_under_incl(a: Self, b: Self) {
+    proof fn closed_under_incl(a: Self, b: Self) by(nonlinear_arith)
+    {
+      match (a, b) {
+          (
+              ErrorCreditCarrier::Value { nom: n1, denom: d1 },
+              ErrorCreditCarrier::Value { nom: n2, denom: d2 },
+          ) => {
+            // WH n1 * d2 + n2 * d1 <= d1 * d2
+            // WTS n2 <= d2
+            assert(n1 * d2 + n2 * d1 <= d1 * d2 ==> n2 <= d2);
+
+          },
+          (ErrorCreditCarrier::Empty, _) => {},
+          _ => {}
+      }
     }
 
-    proof fn commutative(a: Self, b: Self) {
+    proof fn commutative(a: Self, b: Self) by(nonlinear_arith) 
+    {
     }
 
-    proof fn associative(a: Self, b: Self, c: Self) {
+    proof fn associative(a: Self, b: Self, c: Self) by(nonlinear_arith)  {
+      match (a, b, c) {
+          (
+              ErrorCreditCarrier::Value { nom: n1, denom: d1 },
+              ErrorCreditCarrier::Value { nom: n2, denom: d2 },
+              ErrorCreditCarrier::Value { nom: n3, denom: d3 },
+          ) => {
+              assert(n1*d2*d3 + n2*d1*d3 + n3*d1*d2 == n1*d2*d3 + n2*d1*d3 + n3*d2*d1);
+              assert((d1 * d2) * d3 == d1 * (d2 * d3));
+          },
+          _ => {}
+      }
     }
 
     proof fn op_unit(a: Self) {
@@ -68,6 +91,12 @@ impl<const TOTAL: u64> PCM for ErrorCreditCarrier<TOTAL> {
     }
 }
 
+// #[verifier(external_body)]
+// exec fn flip(tracked ec: Tracked<ErrorCreditCarrier>) -> (res: bool)
+//     ensures
+//       res == true
+// {
+//   fill_bytes()
 } // verus!
 // the key difference is normally in `frac`, you will have a `new`
 // methods to let you
@@ -82,4 +111,6 @@ impl<const TOTAL: u64> PCM for ErrorCreditCarrier<TOTAL> {
 ```
  */
 // I think what we want is to extend assert with an error credit...
+// v = flip()
+// assert (0.5) (v == 1);
 fn main() {}
