@@ -9,10 +9,9 @@ verus! {
 // https://logsem.github.io/clutch/clutch.base_logic.error_credits.html
 // ideally the carrier should be nonnegreal, but Verus doesn't have real theory
 // we now model it as a rational number as the division between two integers
-
 // TODO: how to we quotient out the equivalence
 pub enum ErrorCreditCarrier {
-    Value { nom: nat, denom: nat },
+    Value { car: real },
     Empty,
     Invalid,
 }
@@ -20,14 +19,17 @@ pub enum ErrorCreditCarrier {
 // you can always get 0 error credit
 impl ErrorCreditCarrier {
     pub closed spec fn zero() -> Self {
-        ErrorCreditCarrier::Value { nom: 0, denom: 1 }
+        ErrorCreditCarrier::Value { car: 0real }
     }
 }
 
 impl PCM for ErrorCreditCarrier {
     closed spec fn valid(self) -> bool {
         match self {
-            ErrorCreditCarrier::Value { nom, denom } => denom > 0 && nom <= denom,
+            // TODO: fix chained operator for real numbers
+            ErrorCreditCarrier::Value {
+                car,
+            } => 0real <= car && car < 1real,
             ErrorCreditCarrier::Empty => true,
             ErrorCreditCarrier::Invalid => false,
         }
@@ -36,10 +38,16 @@ impl PCM for ErrorCreditCarrier {
     // addition of rational numbers
     closed spec fn op(self, other: Self) -> Self {
         match (self, other) {
-            (
-                ErrorCreditCarrier::Value { nom: n1, denom: d1 },
-                ErrorCreditCarrier::Value { nom: n2, denom: d2 },
-            ) => { ErrorCreditCarrier::Value { nom: n1 * d2 + n2 * d1, denom: d1 * d2 } },
+            (ErrorCreditCarrier::Value { car: c1 }, ErrorCreditCarrier::Value { car: c2 }) => {
+                // REVIEW: we have to bake in the `nonnegreal` part in the op
+                // I guess verus doesn't have a good way to express subset types like Dafny...
+                if c1 < 0real || c2 < 0real {
+                    ErrorCreditCarrier::Invalid
+                } else {
+                    ErrorCreditCarrier::Value { car: c1 + c2 }
+                }
+
+            },
             (ErrorCreditCarrier::Empty, ec) | (ec, ErrorCreditCarrier::Empty) => ec,
             _ => ErrorCreditCarrier::Invalid,
         }
@@ -49,39 +57,13 @@ impl PCM for ErrorCreditCarrier {
         ErrorCreditCarrier::Empty
     }
 
-    proof fn closed_under_incl(a: Self, b: Self) by(nonlinear_arith)
-    {
-      match (a, b) {
-          (
-              ErrorCreditCarrier::Value { nom: n1, denom: d1 },
-              ErrorCreditCarrier::Value { nom: n2, denom: d2 },
-          ) => {
-            // WH n1 * d2 + n2 * d1 <= d1 * d2
-            // WTS n2 <= d2
-            assert(n1 * d2 + n2 * d1 <= d1 * d2 ==> n2 <= d2);
-
-          },
-          (ErrorCreditCarrier::Empty, _) => {},
-          _ => {}
-      }
+    proof fn closed_under_incl(a: Self, b: Self) {
     }
 
-    proof fn commutative(a: Self, b: Self) by(nonlinear_arith) 
-    {
+    proof fn commutative(a: Self, b: Self) {
     }
 
-    proof fn associative(a: Self, b: Self, c: Self) by(nonlinear_arith)  {
-      match (a, b, c) {
-          (
-              ErrorCreditCarrier::Value { nom: n1, denom: d1 },
-              ErrorCreditCarrier::Value { nom: n2, denom: d2 },
-              ErrorCreditCarrier::Value { nom: n3, denom: d3 },
-          ) => {
-              assert(n1*d2*d3 + n2*d1*d3 + n3*d1*d2 == n1*d2*d3 + n2*d1*d3 + n3*d2*d1);
-              assert((d1 * d2) * d3 == d1 * (d2 * d3));
-          },
-          _ => {}
-      }
+    proof fn associative(a: Self, b: Self, c: Self) {
     }
 
     proof fn op_unit(a: Self) {
