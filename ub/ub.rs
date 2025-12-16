@@ -9,7 +9,6 @@ verus! {
 // https://logsem.github.io/clutch/clutch.base_logic.error_credits.html
 // ideally the carrier should be nonnegreal, but Verus doesn't have real theory
 // we now model it as a rational number as the division between two integers
-// TODO: how to we quotient out the equivalence
 pub enum ErrorCreditCarrier {
     Value { car: real },
     Empty,
@@ -73,6 +72,33 @@ impl PCM for ErrorCreditCarrier {
     }
 }
 
+pub struct ErrorCreditResource {
+    r: Resource<ErrorCreditCarrier>,
+}
+
+impl ErrorCreditResource {
+    pub closed spec fn view(self) -> ErrorCreditCarrier {
+        self.r.value()
+    }
+
+    pub proof fn explode(tracked &self, c:real) 
+        requires
+            self.view() =~= (ErrorCreditCarrier::Value { car: c }),
+            c >= 1real,
+        ensures
+            !self.view().valid()
+    {
+    }
+    
+    pub proof fn valid(tracked &self)
+        ensures
+            self.view().valid()
+    {
+        self.r.validate();
+    }
+
+}
+
 // #[verifier(external_body)]
 // exec fn flip(tracked ec: Tracked<ErrorCreditCarrier>) -> (res: bool)
 //     ensures
@@ -80,6 +106,7 @@ impl PCM for ErrorCreditCarrier {
 // {
 //   fill_bytes()
 } // verus!
+
 // the key difference is normally in `frac`, you will have a `new`
 // methods to let you
 // exmaple of { ↯(0.5) } flip() { v. v = 1 }
@@ -95,4 +122,7 @@ impl PCM for ErrorCreditCarrier {
 // I think what we want is to extend assert with an error credit...
 // v = flip()
 // assert (0.5) (v == 1);
+
+
 fn main() {}
+
