@@ -26,9 +26,7 @@ impl PCM for ErrorCreditCarrier {
     closed spec fn valid(self) -> bool {
         match self {
             // TODO: fix chained operator for real numbers
-            ErrorCreditCarrier::Value {
-                car,
-            } => 0real <= car && car < 1real,
+            ErrorCreditCarrier::Value { car } => 0real <= car && car < 1real,
             ErrorCreditCarrier::Empty => true,
             ErrorCreditCarrier::Invalid => false,
         }
@@ -81,22 +79,21 @@ impl ErrorCreditResource {
         self.r.value()
     }
 
-    pub proof fn explode(tracked &self, c:real) 
+    pub proof fn explode(tracked &self, c: real)
         requires
             self.view() =~= (ErrorCreditCarrier::Value { car: c }),
             c >= 1real,
         ensures
-            !self.view().valid()
+            !self.view().valid(),
     {
     }
-    
+
     pub proof fn valid(tracked &self)
         ensures
-            self.view().valid()
+            self.view().valid(),
     {
         self.r.validate();
     }
-
 }
 
 // #[verifier(external_body)]
@@ -106,7 +103,6 @@ impl ErrorCreditResource {
 // {
 //   fill_bytes()
 } // verus!
-
 // the key difference is normally in `frac`, you will have a `new`
 // methods to let you
 // exmaple of { ↯(0.5) } flip() { v. v = 1 }
@@ -122,7 +118,4 @@ impl ErrorCreditResource {
 // I think what we want is to extend assert with an error credit...
 // v = flip()
 // assert (0.5) (v == 1);
-
-
 fn main() {}
-
