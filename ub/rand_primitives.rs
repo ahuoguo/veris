@@ -74,6 +74,8 @@ pub fn rand_1_u64(
     ensures
         (ErrorCreditCarrier::Value { car: e2(ret.0 as real) }) =~= ret.1.view().view(),
 {
+    // TODO: is there a more automatic way to unfold this fold_left?
+    // if I have a fold_left that computes a sum in reals, what's the easiest way to prove its value?
     // Prove that average(2u64, e2) equals the precondition expression
     assert(Seq::new(2 as nat, |i: int| i) =~= seq![0int, 1int]);
     assert(average(2u64, e2) == (e2(0real) + e2(1real)) / 2real) by {
@@ -101,28 +103,7 @@ pub fn flip(Tracked(e1): Tracked<ErrorCreditResource>) -> (ret: u64)
     requires
         (ErrorCreditCarrier::Value { car: 0.5real }) == e1.view(),
 {
-    assert(Seq::new(2 as nat, |i: int| i) =~= seq![0int, 1int]);
-    // TODO: is there a more automatic way to unfold this fold_left?
-    // if I have a fold_left that computes a sum in reals, what's the easiest way to prove its value?
-    // TODO: unfortunabte hack for `spec_fn`, see zulip:
-    // https://verus-lang.zulipchat.com/#narrow/channel/399078-help/topic/.E2.9C.94.20Using.20.60spec.20fn.60.20as.20.60spec_fn.60/near/564030019
-    assert(average(2u64, (|y: real| flip_e2(y))) == 0.5real) by {
-        let f = (|y: real| flip_e2(y));  // LOOK AT ME: you can't just use flip_e2 here...
-        calc! {
-            (==)
-            seq![0int, 1int].fold_left(0real, |acc: real, x| acc + f(x as real)); {
-                assert(seq![0int, 1int].drop_last() =~= seq![0int]);
-            }
-            seq![0int].fold_left(0real, |acc: real, x| acc + f(x as real)) + f(1int as real); {
-                assert(seq![0int].drop_last() =~= seq![]);
-            }
-            (seq![].fold_left(0real, |acc: real, x: int| acc + f(x as real)) + f(0int as real)) + f(1int as real);
-        }
-        assert(1real / 2real == 0.5real);
-    };
-    // Need to wrap with ghost becuase argument must be exec mode
-    // https://verus-lang.github.io/verus/guide/reference-var-modes.html#using-tracked-and-ghost-variables-from-an-exec-function
-    let (val, Tracked(e2)) = rand_u64(2u64, Tracked(e1), Ghost(|x: real| flip_e2(x)));
+    let (val, Tracked(e2)) = rand_1_u64(Tracked(e1), Ghost(|x: real| flip_e2(x)));
 
     // TODO: some how you can't put `proof {...}` in `assert by`
     // and `assert by {...}` is not considered as a proof block
