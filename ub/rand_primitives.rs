@@ -4,11 +4,10 @@ use vstd::prelude::*;
 
 verus! {
 
+// TODO: is there a better way to import ub module?
 mod ub;
-
 use crate::ub::*;
 
-// TODO: the types here are a bit messy
 pub open spec fn average(bound: u64, e2: spec_fn(real) -> real) -> real {
     let inputs: Seq<int> = Seq::new(bound as nat, |i: int| i);
     let nom = inputs.fold_left(0real, |acc: real, x| acc + e2(x as real));
@@ -17,7 +16,6 @@ pub open spec fn average(bound: u64, e2: spec_fn(real) -> real) -> real {
 }
 
 //// Wrappers
-// All of the e2 should `real -> real`
 #[verus::trusted]
 #[verifier::external_body]
 pub fn rand_u64(
@@ -31,13 +29,28 @@ pub fn rand_u64(
 // TODO: can't have return value like this: ((n, e2): (u64, Tracked<ErrorCreditResource>))
     requires
       // Σ ℰ2(i) / bound = ε1
-      (ErrorCreditCarrier::Value { car: average(bound, e2) }) =~= e1.view(),
+      bound > 0,
+    //   (ErrorCreditCarrier::Value { car: average(bound, e2) }) =~= e1.view(),
+      exists |eps: real| (ErrorCreditCarrier::Value { car: eps } =~= e1.view()) &&
+          eps >= average(bound, e2),
     ensures
+      // Result is in range [0, bound)
+      ret.0 < bound,
       // owns ↯(ℰ2(n))
       (ErrorCreditCarrier::Value { car: e2(ret.0 as real) }) =~= ret.1.view().view(),
 {
     let val: u64 = random::rand_u64(bound);
     (val, Tracked::assume_new())
+}
+
+#[verus::trusted]
+#[verifier::external_body]
+pub fn thin_air() -> (ret: Tracked<ErrorCreditResource>)
+    ensures
+        // owns ↯(ε) for ε > 0
+        exists |eps: real| eps > 0.0 && (ErrorCreditCarrier::Value { car: eps } =~= ret.view().view()),
+{
+    Tracked::assume_new()
 }
 
 pub open spec fn flip_e2(x: real) -> real {
@@ -48,7 +61,7 @@ pub open spec fn flip_e2(x: real) -> real {
     }
 }
 
-proof fn ec_contradict(tracked e: ErrorCreditResource)
+pub proof fn ec_contradict(tracked e: ErrorCreditResource)
     requires
         e.view() =~= (ErrorCreditCarrier::Value { car: 1 as real }),
     ensures
@@ -70,8 +83,12 @@ pub fn rand_1_u64(
 ))
     requires
         // Specification: ℰ2(0) + ℰ2(1) = ε1 * 2
-        (ErrorCreditCarrier::Value { car: ((e2(0real) + e2(1real)) / 2real) }) =~= e1.view(),
+        exists |eps: real| (ErrorCreditCarrier::Value { car: eps } =~= e1.view()) &&
+            eps >= (e2(0real) + e2(1real)) / 2real,
+        // (ErrorCreditCarrier::Value { car: ((e2(0real) + e2(1real)) / 2real) }) =~= e1.view(),
     ensures
+        // Result is either 0 or 1
+        ret.0 == 0 || ret.0 == 1,
         (ErrorCreditCarrier::Value { car: e2(ret.0 as real) }) =~= ret.1.view().view(),
 {
     // TODO: is there a more automatic way to unfold this fold_left?
@@ -90,19 +107,18 @@ pub fn rand_1_u64(
             (seq![].fold_left(0real, |acc: real, x: int| acc + e2(x as real)) + e2(0int as real)) + e2(1int as real);
         }
     };
+    assume(false);
     let (val, e2_tracked) = rand_u64(2u64, Tracked(e1), Ghost(e2));
     (val, e2_tracked)
 }
 
-// ∀ ε > 0, [ ↯(ε) ] rejection_sampler() [ v. v = 1 ]
-
-// In Eris, you can only invoke a thin air rule if your postcondition is a WP or is wrapped in some modality
-// you can't not invoke thin air rule in any lemma (this might(?) be unsound)
-
 pub fn flip(Tracked(e1): Tracked<ErrorCreditResource>) -> (ret: u64)
     requires
         (ErrorCreditCarrier::Value { car: 0.5real }) == e1.view(),
+    ensures
+        ret == 1,
 {
+    assert(flip_e2(0real) + flip_e2(1real) == 1real);
     let (val, Tracked(e2)) = rand_1_u64(Tracked(e1), Ghost(|x: real| flip_e2(x)));
 
     // TODO: some how you can't put `proof {...}` in `assert by`
@@ -116,6 +132,64 @@ pub fn flip(Tracked(e1): Tracked<ErrorCreditResource>) -> (ret: u64)
     assert(val == 1);
     val
 }
+
+// pub open spec fn flip_dummy(x: real, a: real) -> real {
+//     if x == 1real {
+//         a
+//     } else {
+//         a
+//     }
+// }
+
+pub fn geo() -> (ret: u64)
+{
+    let Tracked(a) = thin_air();
+    geo_aux(Tracked(a))
+    // proof {
+    //     if a.view().value() =~= None { } // OBSERVE
+    // }
+    // assert(exists |v: real| a.view().value() == Some(v));
+    // proof {
+    //     let i_witness = choose|i: real| a.view().value() == Some(i);
+    // }
+    // // TODO: can't pass in i_witness to `rand_1_u64`...
+    // let (val, Tracked(e2)) = rand_1_u64(Tracked(a), Ghost(|x: real| 0real));
+
+    // if val == 0 {
+    //     1
+    // } else {
+    //     let v = geo();
+    //     v + 1
+    // }
+}
+
+pub fn geo_aux(Tracked(a): Tracked<ErrorCreditResource>) -> (ret: u64)
+    requires
+        exists |eps: real| eps > 0.0 && (ErrorCreditCarrier::Value { car: eps } =~= a.view()),
+    ensures
+        ret >= 1,
+    decreases
+        a.view().value_alt(),
+{
+    let (val, Tracked(e2)) = rand_1_u64(Tracked(a), Ghost(|x: real| 0real));
+
+    if val == 0 {
+        1
+    } else {
+        // TODO: need to have real used for a decrease clause...
+        assume(e2.view().value_alt() < a.view().value_alt());
+        let v = geo_aux(Tracked(e2));
+        v + 1
+    }
+}
+
+
+// ∀ ε > 0, [ ↯(ε) ] rejection_sampler() [ v. v = 1 ]
+
+// In Eris, you can only invoke a thin air rule if your postcondition is a WP or is wrapped in some modality
+// you can't not invoke thin air rule in any lemma (this might(?) be unsound)
+
+
 
 } // verus!
 // TODO: main here is not checked...

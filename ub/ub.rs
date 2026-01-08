@@ -20,6 +20,20 @@ impl ErrorCreditCarrier {
     pub closed spec fn zero() -> Self {
         ErrorCreditCarrier::Value { car: 0real }
     }
+
+    pub open spec fn value(self) -> Option<real> {
+        match self {
+            ErrorCreditCarrier::Value { car } => Some(car),
+            _ => None,
+        }
+    }
+
+    pub open spec fn value_alt(self) -> int {
+        match self {
+            ErrorCreditCarrier::Value { car } => 1,
+            _ => -1, // invalid value
+        }
+    }
 }
 
 impl PCM for ErrorCreditCarrier {
