@@ -63,11 +63,15 @@ pub open spec fn flip_e2(x: real) -> real {
 
 pub proof fn ec_contradict(tracked e: ErrorCreditResource)
     requires
-        e.view() =~= (ErrorCreditCarrier::Value { car: 1 as real }),
+        exists |car: real| {
+            &&& car >= 1real 
+            &&& e.view() =~= (ErrorCreditCarrier::Value { car })
+        }
     ensures
         false,
 {
-    e.explode(1real);
+    let car = choose|v: real| e.view() == (ErrorCreditCarrier::Value { car: v });
+    e.explode(car);
     e.valid();
     assert(!e.view().valid());
 }
@@ -193,29 +197,46 @@ pub fn geo_aux(Tracked(a): Tracked<ErrorCreditResource>, Ghost(k): Ghost<nat>) -
         k
 {
     let ghost mut eps : real;
+    let ghost mut eps1 : real;
+
     assert(exists |v: real| a.view().value() == Some(v));
     proof {
         eps = choose|i: real| a.view().value() == Some(i);
+        
     }
     let (val, Tracked(e2)) = rand_1_u64(Tracked(a), Ghost(|x: real| flip_eps(x, eps)));
 
     if val == 0 {
         1
     } else {
-        proof {
-            if k == 0nat {
-                // then invariant doesn't hold...
-                assume(false);
-            }
-        }
+
         assume(exists |eps: real| {
             &&& eps > 0.0 
             &&& (ErrorCreditCarrier::Value { car: eps } =~= e2.view())
             &&& eps * pow(2real, (k-1) as nat) >= 1real
         });
+        proof {
+            eps1 = choose|i: real| e2.view().value() == Some(i);
+            if k == 0nat {
+                assert(eps1 * pow(2real, k) >= 1real);
+                assert(eps1 >= 1real);
+                assume(false); 
+                // TODO: not sure how to make verus types happy
+                // I basically want to do a case split and use the resource correspondingly...
+                // ec_contradict(e2);
+            }
+        }
+        // assert(k != 0nat) by {
+        //     if k == 0nat {
+        //         assert(eps1 * pow(2real, k) >= 1real);
+        //         assert(eps1 >= 1real);
+        //         // TODO: mode error...
+        //         ec_contradict(e2);
+        //     }
+        // };
         let v = geo_aux(Tracked(e2), Ghost((k-1) as nat ));
         // TODO: will arithmetic overflow if `+1`, maybe we should not name this as geometric...
-        v
+        1
     }
 }
 
