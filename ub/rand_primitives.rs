@@ -175,7 +175,7 @@ pub fn geo() -> (ret: u64)
     assert(exists |v: real| a.view().value() == Some(v));
     proof {
         epsilon = choose|i: real| a.view().value() == Some(i);
-        assume(forall |r: real| #[trigger]gt_1(r) ==> exists |k : nat| epsilon * #[trigger]pow(r, k) >= 1real ); // TODO: pure fact, hopefully this is easy to discharge...
+        pure_fact(epsilon);
         assert(gt_1(2real)); // OBSERVE
         assert(exists |k : nat| epsilon * pow(2real, k) >= 1real);
         hi = choose|i: nat| epsilon * pow(2real, i) >= 1real;
@@ -210,12 +210,6 @@ pub fn geo_aux(Tracked(a): Tracked<ErrorCreditResource>, Ghost(k): Ghost<nat>) -
     if val == 0 {
         1
     } else {
-
-        assume(exists |eps: real| {
-            &&& eps > 0.0 
-            &&& (ErrorCreditCarrier::Value { car: eps } =~= e2.view())
-            &&& eps * pow(2real, (k-1) as nat) >= 1real
-        });
         proof {
             eps1 = choose|i: real| e2.view().value() == Some(i);
             if k == 0nat {
@@ -230,17 +224,55 @@ pub fn geo_aux(Tracked(a): Tracked<ErrorCreditResource>, Ghost(k): Ghost<nat>) -
                 assert(false);
             }
         }
+        assert(k != 0nat);
+        assert(flip_eps(val as real, eps) == 2real * eps);
+        proof{
+            calc! {
+                (==)
+                (2real*eps) * pow(2real, (k - 1) as nat); {
+                }
+                (eps * 2real) * pow(2real, (k - 1) as nat); {
+                    real_assoc_mult(eps, 2real, pow(2real, (k - 1) as nat));
+                }
+                eps * (2real * pow(2real, (k - 1) as nat)); {
+                }
+                eps * pow(2real, k);
+            };
+        }
+        // assume((2real*eps) * pow(2real, (k - 1) as nat) == eps * pow(2real, k));
+        assert( (2real*eps) * pow(2real, (k - 1) as nat) >= 1real);
         let v = geo_aux(Tracked(e2), Ghost((k-1) as nat ));
         // TODO: will arithmetic overflow if `+1`, maybe we should not name this as geometric...
         1
     }
 }
 
+proof fn pure_fact(epsilon: real)
+    requires
+        epsilon > 0real,
+    ensures
+        forall |r: real| #[trigger]gt_1(r) ==> 
+            exists |k : nat| epsilon * #[trigger]pow(r, k) >= 1real,
+{
+    assert forall |r: real| #[trigger]gt_1(r) implies 
+        exists |k : nat| epsilon * #[trigger]pow(r, k) >= 1real
+    by {
+        assume(false);
+    }
+}
+
+#[verifier::nonlinear]
+proof fn real_assoc_mult(a: real, b: real, c: real)
+    ensures
+        a * (b * c) == (a * b) * c,
+{
+}
+
 spec fn flip_eps(x: real, eps: real) -> real {
     if x == 0real {
         0real
     } else {
-        eps
+        2real * eps
     }
 }
 
