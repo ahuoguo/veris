@@ -61,6 +61,7 @@ pub open spec fn flip_e2(x: real) -> real {
     }
 }
 
+// TODO: this is bad since this consumes the token, `.explode is better`...
 pub proof fn ec_contradict(tracked e: ErrorCreditResource)
     requires
         exists |car: real| {
@@ -220,20 +221,15 @@ pub fn geo_aux(Tracked(a): Tracked<ErrorCreditResource>, Ghost(k): Ghost<nat>) -
             if k == 0nat {
                 assert(eps1 * pow(2real, k) >= 1real);
                 assert(eps1 >= 1real);
-                assume(false); 
-                // TODO: not sure how to make verus types happy
+                // ~~TODO: not sure how to make verus types happy~~ SOLVED!
                 // I basically want to do a case split and use the resource correspondingly...
-                // ec_contradict(e2);
+                // TODO: is there a better lemma to wrap around this?
+                e2.explode(eps1);
+                e2.valid();
+                assert(!e2.view().valid());
+                assert(false);
             }
         }
-        // assert(k != 0nat) by {
-        //     if k == 0nat {
-        //         assert(eps1 * pow(2real, k) >= 1real);
-        //         assert(eps1 >= 1real);
-        //         // TODO: mode error...
-        //         ec_contradict(e2);
-        //     }
-        // };
         let v = geo_aux(Tracked(e2), Ghost((k-1) as nat ));
         // TODO: will arithmetic overflow if `+1`, maybe we should not name this as geometric...
         1
