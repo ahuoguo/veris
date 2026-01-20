@@ -28,12 +28,12 @@ impl ErrorCreditCarrier {
         }
     }
 
-    pub open spec fn value_alt(self) -> int {
-        match self {
-            ErrorCreditCarrier::Value { car } => 1,
-            _ => -1, // invalid value
-        }
-    }
+    // pub open spec fn value_alt(self) -> real {
+    //     match self {
+    //         ErrorCreditCarrier::Value { car } => 1real,
+    //         _ => -1 as real, // invalid value
+    //     }
+    // }
 }
 
 impl PCM for ErrorCreditCarrier {
