@@ -8,6 +8,9 @@ verus! {
 mod ub;
 use crate::ub::*;
 
+mod pure_fact;
+use pure_fact::{gt_1, pow};
+
 pub open spec fn average(bound: u64, e2: spec_fn(real) -> real) -> real {
     let inputs: Seq<int> = Seq::new(bound as nat, |i: int| i);
     let nom = inputs.fold_left(0real, |acc: real, x| acc + e2(x as real));
@@ -145,20 +148,10 @@ pub fn flip(Tracked(e1): Tracked<ErrorCreditResource>) -> (ret: u64)
 //     }
 // }
 
-pub open spec fn pow(x:real, k: nat) -> real 
-    decreases k
-{
-    if k == 0 {
-        1real
-    } else {
-        x * pow(x, (k - 1) as nat)
-    }
-}
-
-pub open spec fn gt_1 (r: real) -> bool
-{
-    r > 1real
-}
+// pub open spec fn pow(x:real, k: nat) -> real 
+// {
+//     pure_fact::pow(x, k)
+// }
 
 pub fn geo() -> (ret: u64)
 {
@@ -254,11 +247,7 @@ proof fn pure_fact(epsilon: real)
         forall |r: real| #[trigger]gt_1(r) ==> 
             exists |k : nat| epsilon * #[trigger]pow(r, k) >= 1real,
 {
-    assert forall |r: real| #[trigger]gt_1(r) implies 
-        exists |k : nat| epsilon * #[trigger]pow(r, k) >= 1real
-    by {
-        assume(false);
-    }
+    pure_fact::pure_fact(epsilon);
 }
 
 #[verifier::nonlinear]
