@@ -131,16 +131,14 @@ proof fn lemma_bernoulli_step(r: real, prev: nat, delta: real)
     // Which is true since delta > 0 and prev >= 0
 }
 
-// Standard Archimedean property for naturals:
-// For any positive real x, there exists n: nat such that n >= x
-// This is a fundamental axiom - the integers are unbounded
-#[verifier::external_body]
 proof fn archimedean_nat(x: real)
     requires
         x >= 0real,
     ensures
         exists |n: nat| #[trigger] nat_to_real(n) >= x,
 {
+    let a: nat = x.floor() as nat;
+    assert(x < nat_to_real(a + 1));   
 }
 
 // Archimedean property for powers: powers of r > 1 grow without bound

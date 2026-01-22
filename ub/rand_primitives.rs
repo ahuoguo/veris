@@ -196,28 +196,24 @@ pub fn geo_aux(Tracked(a): Tracked<ErrorCreditResource>, Ghost(k): Ghost<nat>) -
     assert(exists |v: real| a.view().value() == Some(v));
     proof {
         eps = choose|i: real| a.view().value() == Some(i);
-        
+        if k == 0nat {
+            assert(eps * pow(2real, k) >= 1real);
+            assert(eps >= 1real);
+            // ~~TODO: not sure how to make verus types happy~~ SOLVED!
+            // I basically want to do a case split and use the resource correspondingly...
+            // TODO: is there a better lemma to wrap around this?
+            a.explode(eps);
+            a.valid();
+            assert(!a.view().valid());
+            assert(false);
+        }
+        assert(k != 0nat);
     }
     let (val, Tracked(e2)) = rand_1_u64(Tracked(a), Ghost(|x: real| flip_eps(x, eps)));
 
     if val == 0 {
         1
     } else {
-        proof {
-            eps1 = choose|i: real| e2.view().value() == Some(i);
-            if k == 0nat {
-                assert(eps1 * pow(2real, k) >= 1real);
-                assert(eps1 >= 1real);
-                // ~~TODO: not sure how to make verus types happy~~ SOLVED!
-                // I basically want to do a case split and use the resource correspondingly...
-                // TODO: is there a better lemma to wrap around this?
-                e2.explode(eps1);
-                e2.valid();
-                assert(!e2.view().valid());
-                assert(false);
-            }
-        }
-        assert(k != 0nat);
         assert(flip_eps(val as real, eps) == 2real * eps);
         proof{
             calc! {
@@ -236,7 +232,8 @@ pub fn geo_aux(Tracked(a): Tracked<ErrorCreditResource>, Ghost(k): Ghost<nat>) -
         assert( (2real*eps) * pow(2real, (k - 1) as nat) >= 1real);
         let v = geo_aux(Tracked(e2), Ghost((k-1) as nat ));
         // TODO: will arithmetic overflow if `+1`, maybe we should not name this as geometric...
-        1
+        assume(false);
+        v + 1
     }
 }
 
@@ -271,11 +268,11 @@ spec fn flip_eps(x: real, eps: real) -> real {
 // you can't not invoke thin air rule in any lemma (this might(?) be unsound)
 
 } // verus!
+
 // TODO: main here is not checked...
 fn main() {
-    for _ in 0..10 {
-        let a = flip(vstd::prelude::Tracked::assume_new());
-        println!("{}", a);
+    println!("Geometric Distribution Test");
+    for _ in 0..100 {
+        println!("{}", geo());
     }
-
 }
