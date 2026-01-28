@@ -12,7 +12,6 @@ mkdir -p build
 # TOOD: should I be careful about the version?
 cd random
 # cargo clean --release
-cargo +1.91.0 build --release
+cargo +1.92.0 build --release
 cd ..
 OPENDP_RLIB_NAME=$(find ./random/target/release/deps/ -name 'libopendp-*.rlib')
-cp $OPENDP_RLIB_NAME build/opendp.rlib
