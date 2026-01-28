@@ -5,17 +5,13 @@ verus! {
 
 // wrapper around ec, namely `↯`
 // A error credit represents a resource with a non zero value
-// ideally the carrier should be nonnegreal
 // https://logsem.github.io/clutch/clutch.base_logic.error_credits.html
-// ideally the carrier should be nonnegreal, but Verus doesn't have real theory
-// we now model it as a rational number as the division between two integers
 pub enum ErrorCreditCarrier {
     Value { car: real },
     Empty,
     Invalid,
 }
 
-// you can always get 0 error credit
 impl ErrorCreditCarrier {
     pub closed spec fn zero() -> Self {
         ErrorCreditCarrier::Value { car: 0real }
@@ -27,26 +23,17 @@ impl ErrorCreditCarrier {
             _ => None,
         }
     }
-
-    // pub open spec fn value_alt(self) -> real {
-    //     match self {
-    //         ErrorCreditCarrier::Value { car } => 1real,
-    //         _ => -1 as real, // invalid value
-    //     }
-    // }
 }
 
 impl PCM for ErrorCreditCarrier {
     closed spec fn valid(self) -> bool {
         match self {
-            // TODO: fix chained operator for real numbers
-            ErrorCreditCarrier::Value { car } => 0real <= car && car < 1real,
+            ErrorCreditCarrier::Value { car } => 0real <= car < 1real,
             ErrorCreditCarrier::Empty => true,
             ErrorCreditCarrier::Invalid => false,
         }
     }
 
-    // addition of rational numbers
     closed spec fn op(self, other: Self) -> Self {
         match (self, other) {
             (ErrorCreditCarrier::Value { car: c1 }, ErrorCreditCarrier::Value { car: c2 }) => {
@@ -110,26 +97,6 @@ impl ErrorCreditResource {
     }
 }
 
-// #[verifier(external_body)]
-// exec fn flip(tracked ec: Tracked<ErrorCreditCarrier>) -> (res: bool)
-//     ensures
-//       res == true
-// {
-//   fill_bytes()
 } // verus!
-// the key difference is normally in `frac`, you will have a `new`
-// methods to let you
-// exmaple of { ↯(0.5) } flip() { v. v = 1 }
-/**
- ```rust
-  fn flip (tracked ec: Tracked(ErrorCredits(0.5))) -> (res: bool)
-    ensures
-      res == true
-  {
-  }
-```
- */
-// I think what we want is to extend assert with an error credit...
-// v = flip()
-// assert (0.5) (v == 1);
+
 fn main() {}

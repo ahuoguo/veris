@@ -46,6 +46,9 @@ pub fn rand_u64(
     (val, Tracked::assume_new())
 }
 
+// REVIEW:
+// In Eris, you can only invoke a thin air rule if your postcondition is a WP or is wrapped in some modality
+// you can't not invoke thin air rule in any lemma (this might(?) be unsound)
 #[verus::trusted]
 #[verifier::external_body]
 pub fn thin_air() -> (ret: Tracked<ErrorCreditResource>)
@@ -140,19 +143,6 @@ pub fn flip(Tracked(e1): Tracked<ErrorCreditResource>) -> (ret: u64)
     val
 }
 
-// pub open spec fn flip_dummy(x: real, a: real) -> real {
-//     if x == 1real {
-//         a
-//     } else {
-//         a
-//     }
-// }
-
-// pub open spec fn pow(x:real, k: nat) -> real 
-// {
-//     pure_fact::pow(x, k)
-// }
-
 pub fn geo() -> (ret: u64)
 {
     let Tracked(a) = thin_air();
@@ -228,12 +218,11 @@ pub fn geo_aux(Tracked(a): Tracked<ErrorCreditResource>, Ghost(k): Ghost<nat>) -
                 eps * pow(2real, k);
             };
         }
-        // assume((2real*eps) * pow(2real, (k - 1) as nat) == eps * pow(2real, k));
         assert( (2real*eps) * pow(2real, (k - 1) as nat) >= 1real);
         let v = geo_aux(Tracked(e2), Ghost((k-1) as nat ));
         // TODO: will arithmetic overflow if `+1`, maybe we should not name this as geometric...
-        assume(false);
-        v + 1
+        // assume(false);
+        v
     }
 }
 
@@ -262,14 +251,10 @@ spec fn flip_eps(x: real, eps: real) -> real {
     }
 }
 
-// ∀ ε > 0, [ ↯(ε) ] rejection_sampler() [ v. v = 1 ]
-
-// In Eris, you can only invoke a thin air rule if your postcondition is a WP or is wrapped in some modality
-// you can't not invoke thin air rule in any lemma (this might(?) be unsound)
 
 } // verus!
 
-// TODO: main here is not checked...
+// `fn main` is outside of `verus!`, so it is not checked
 fn main() {
     println!("Geometric Distribution Test");
     for _ in 0..100 {
