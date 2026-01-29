@@ -16,7 +16,8 @@ jobs:
         run: |
           wget https://github.com/verus-lang/verus/releases/download/release%2F0.2026.01.23.1650a05/verus-0.2026.01.23.1650a05-x86-linux.zip
           unzip verus-0.2026.01.23.1650a05-x86-linux.zip
-          export PATH="$PATH:$(pwd)/verus-x86-linux/"
+      - name: Add Verus to PATH
+        run: echo "$(pwd)/verus-x86-linux/" >> $GITHUB_PATH
       
       - name: Run opendp.sh
         run: bash opendp.sh
