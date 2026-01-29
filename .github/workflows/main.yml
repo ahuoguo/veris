@@ -22,4 +22,6 @@ jobs:
         run: bash opendp.sh
       
       - name: Run verify.sh
-        run: bash verify.sh
+        run: |
+          cd ub
+          bash verify.sh
