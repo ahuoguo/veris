@@ -1,0 +1,25 @@
+name: Verify with Verus
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Download Verus
+        run: |
+          wget https://github.com/verus-lang/verus/releases/download/release%2F0.2026.01.23.1650a05/verus-ubuntu-0.2026.01.23.1650a05.tar.gz
+          tar -xzf verus-ubuntu-0.2026.01.23.1650a05.tar.gz
+          export PATH="$PATH:$(pwd)/verus-x86-linux/"
+      
+      - name: Run opendp.sh
+        run: bash opendp.sh
+      
+      - name: Run verify.sh
+        run: bash verify.sh

@@ -4,12 +4,8 @@ use vstd::prelude::*;
 
 verus! {
 
-// TODO: is there a better way to import ub module?
-mod ub;
 use crate::ub::*;
-
-mod pure_fact;
-use pure_fact::{gt_1, pow};
+use crate::pure_fact::{gt_1, pow};
 
 pub open spec fn average(bound: u64, e2: spec_fn(real) -> real) -> real {
     let inputs: Seq<int> = Seq::new(bound as nat, |i: int| i);
@@ -233,7 +229,7 @@ proof fn pure_fact(epsilon: real)
         forall |r: real| #[trigger]gt_1(r) ==> 
             exists |k : nat| epsilon * #[trigger]pow(r, k) >= 1real,
 {
-    pure_fact::pure_fact(epsilon);
+    crate::pure_fact::pure_fact(epsilon);
 }
 
 #[verifier::nonlinear]
