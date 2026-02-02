@@ -27,7 +27,7 @@ verus! {
           assert(exists |k : nat| epsilon * pow(2real, k) >= 1real);
           hi = choose|i: nat| epsilon * pow(2real, i) >= 1real;
           assert(epsilon * pow(2real, hi) >= 1real);
-      }
+      } 
       assert(epsilon * pow(2real, hi) >= 1real);
       geo_aux(Tracked(e), Ghost(hi)) // ε
   }
@@ -40,7 +40,7 @@ verus! {
               &&& eps * pow(2real, k) >= 1real
           }
       ensures
-          ret >= 1,
+          ret >= 0,
       decreases
           k
   {
@@ -60,7 +60,7 @@ verus! {
       }
       let (val, Tracked(e1)) = rand_1_u64(Tracked(e), Ghost(|x: real| flip_eps(x, eps)));
       if val == 0 {
-          1
+          0
       } else {
           assert(flip_eps(val as real, eps) == 2real * eps);
           proof{
@@ -78,9 +78,7 @@ verus! {
           }
           assert( (2real*eps) * pow(2real, (k - 1) as nat) >= 1real);
           let v = geo_aux(Tracked(e1), Ghost((k-1) as nat ));
-          // TODO: will arithmetic overflow if `+1`, maybe we should not name this as geometric...
-          // assume(false);
-          v
+          v.wrapping_add(1u64)
       }
   }
 

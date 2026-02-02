@@ -63,7 +63,6 @@ pub open spec fn flip_e2(x: real) -> real {
     }
 }
 
-// TODO: this is bad since this consumes the token, `.explode is better`...
 pub proof fn ec_contradict(tracked e: &ErrorCreditResource)
     requires
         exists |car: real| {
@@ -122,7 +121,7 @@ pub fn flip(Tracked(e1): Tracked<ErrorCreditResource>) -> (ret: u64)
     requires
         (ErrorCreditCarrier::Value { car: 0.5real }) == e1.view(),
     ensures
-        ret == 1,
+    ret == 1,
 {
     assert(flip_e2(0real) + flip_e2(1real) == 1real);
     let (val, Tracked(e2)) = rand_1_u64(Tracked(e1), Ghost(|x: real| flip_e2(x)));
