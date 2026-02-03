@@ -228,6 +228,21 @@ pub proof fn pure_fact(epsilon: real)
     }
 }
 
+/// Given epsilon > 0 and base > 1, there exists k such that epsilon * base^k >= 1
+pub proof fn pure_fact_with_base(epsilon: real, base: real)
+    requires
+        epsilon > 0real,
+        base > 1real,
+    ensures
+        exists |k: nat| epsilon * pow(base, k) >= 1real,
+{
+    lemma_div_pos(epsilon);
+    archimedean_pow(base, 1real / epsilon);
+    let k = choose |k: nat| #[trigger] pow(base, k) >= 1real / epsilon;
+    lemma_mul_mono(pow(base, k), 1real / epsilon, epsilon);
+    lemma_mul_div_cancel(epsilon);
+}
+
 }
 
 fn main() {}
