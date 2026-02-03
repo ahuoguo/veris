@@ -1,4 +1,5 @@
-// Now, this file is more like a demonstration that why encoding as rational numbers is slow
+/// Now, this file is more like a demonstration that why encoding as rational numbers is slow
+/// try verify it with `verus ub_old.rs` and you will waste 20+ seconds of your life :D
 
 use vstd::pcm::*;
 use vstd::prelude::*;
@@ -93,20 +94,6 @@ impl PCM for ErrorCreditCarrier {
     }
 }
 
-// impl PartialEq for ErrorCreditCarrier {
-//     fn eq(&self, other: &Self) -> bool {
-//         match (self, other) {
-//             (
-//                 ErrorCreditCarrier::Value { nom: n1, denom: d1 },
-//                 ErrorCreditCarrier::Value { nom: n2, denom: d2 },
-//             ) => n1 * d2 == n2 * d1,
-//             (ErrorCreditCarrier::Empty, ErrorCreditCarrier::Empty) => true,
-//             (ErrorCreditCarrier::Invalid, ErrorCreditCarrier::Invalid) => true,
-//             _ => false,
-//         }
-//     }
-// }
-
 // want to prove 2/4 == 1/2
 #[verifier::auto_ext_equal()]
 proof fn error_credit_eq(a: ErrorCreditCarrier, b: ErrorCreditCarrier)
@@ -119,27 +106,6 @@ proof fn error_credit_eq(a: ErrorCreditCarrier, b: ErrorCreditCarrier)
     assert(2 * 2 == 1 * 4);
 }
 
-
-// #[verifier(external_body)]
-// exec fn flip(tracked ec: Tracked<ErrorCreditCarrier>) -> (res: bool)
-//     ensures
-//       res == true
-// {
-//   fill_bytes()
 } // verus!
-// the key difference is normally in `frac`, you will have a `new`
-// methods to let you
-// exmaple of { ↯(0.5) } flip() { v. v = 1 }
-/**
- ```rust
-  fn flip (tracked ec: Tracked(ErrorCredits(0.5))) -> (res: bool)
-    ensures
-      res == true
-  {
-  }
-```
- */
-// I think what we want is to extend assert with an error credit...
-// v = flip()
-// assert (0.5) (v == 1);
+
 fn main() {}
