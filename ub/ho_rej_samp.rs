@@ -176,6 +176,8 @@ pub fn rejection_sampler<S: SamplingScheme>(
         (scheme.check_spec())(ret),
         (scheme.postcond())(ret),
 {
+    // OBSERVE: the thin_air credit is created here
+    // TODO: maybe we should take a thin_air credit as input instead?
     let Tracked(e) = thin_air();
     let ghost amp = scheme.amp();
 
@@ -373,6 +375,7 @@ proof fn lemma_sum_threshold_e2(bound: u64, threshold: u64, eps: real)
     // sum_e2(e2, bound) == 0 + bound * eps == bound * eps
 }
 
+// TODO: why you can't prove everything on top of fold_left
 /// Lemma: eps >= average(bound, threshold_e2)
 ///
 /// Proof sketch:
