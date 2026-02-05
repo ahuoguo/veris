@@ -1,100 +1,113 @@
+// Geometric Distribution Sampler
+// Samples from a geometric distribution by repeatedly flipping a fair coin.
+// Each flip either terminates (outcome 0) or recurses with doubled error credit (outcome 1).
+//
+// The amplification factor is 2 (coin flip), and the error credit invariant is:
+//   eps * 2^depth >= 1
+
 use vstd::prelude::*;
 use vstd::calc_macro::*;
-use vstd::pcm::*;
 
 verus! {
-  use crate::ub::*;
-  use crate::rand_primitives::{rand_1_u64, thin_air, ec_contradict};
-  use crate::pure_fact::{gt_1, pow};
 
-  pub fn geo() -> (ret: u64)
-  {
-      let Tracked(e) = thin_air();
-      // This is a super hacky (but official) way to depend on ghost values...
-      let ghost mut hi;
-      let ghost mut epsilon;
+use crate::ub::*;
+use crate::rand_primitives::{rand_1_u64, thin_air};
+use crate::pure_fact::{pow, pure_fact_with_base};
 
-      // ∀ ε > 0, r >1, ∃ k, ε * r ^ k >= 1
-      // the decreasing part is k
-      proof {
-          if e.view().value() =~= None { } // OBSERVE
-      }
-      assert(exists |v: real| e.view().value() == Some(v));
-      proof {
-          epsilon = choose|i: real| e.view().value() == Some(i);
-          crate::pure_fact::pure_fact(epsilon);
-          assert(gt_1(2real)); // OBSERVE
-          assert(exists |k : nat| epsilon * pow(2real, k) >= 1real);
-          hi = choose|i: nat| epsilon * pow(2real, i) >= 1real;
-          assert(epsilon * pow(2real, hi) >= 1real);
-      } 
-      assert(epsilon * pow(2real, hi) >= 1real);
-      geo_aux(Tracked(e), Ghost(hi)) // ε
-  }
-
-  pub fn geo_aux(Tracked(e): Tracked<ErrorCreditResource>, Ghost(k): Ghost<nat>) -> (ret: u64)
-      requires
-          exists |eps: real| {
-              &&& eps > 0.0 
-              &&& (ErrorCreditCarrier::Value { car: eps } =~= e.view())
-              &&& eps * pow(2real, k) >= 1real
-          }
-      ensures
-          ret >= 0,
-      decreases
-          k
-  {
-      let ghost mut eps : real;
-      let ghost mut eps1 : real;
-
-      assert(exists |v: real| e.view().value() == Some(v));
-      proof {
-          eps = choose|i: real| e.view().value() == Some(i);
-          if k == 0nat {
-              assert(eps * pow(2real, k) >= 1real);
-              assert(eps >= 1real);
-              ec_contradict(&e);
-              assert(false);
-          }
-          assert(k != 0nat);
-      }
-      let (val, Tracked(e1)) = rand_1_u64(Tracked(e), Ghost(|x: real| flip_eps(x, eps)));
-      if val == 0 {
-          0
-      } else {
-          assert(flip_eps(val as real, eps) == 2real * eps);
-          proof{
-              calc! {
-                  (==)
-                  (2real*eps) * pow(2real, (k - 1) as nat); {
-                  }
-                  (eps * 2real) * pow(2real, (k - 1) as nat); {
-                      real_assoc_mult(eps, 2real, pow(2real, (k - 1) as nat));
-                  }
-                  eps * (2real * pow(2real, (k - 1) as nat)); {
-                  }
-                  eps * pow(2real, k);
-              };
-          }
-          assert( (2real*eps) * pow(2real, (k - 1) as nat) >= 1real);
-          let v = geo_aux(Tracked(e1), Ghost((k-1) as nat ));
-          v.wrapping_add(1u64)
-      }
-  }
-
-  #[verifier::nonlinear]
-  proof fn real_assoc_mult(a: real, b: real, c: real)
-      ensures
-          a * (b * c) == (a * b) * c,
-  {
-  }
-
-  spec fn flip_eps(x: real, eps: real) -> real {
-      if x == 0real {
-          0real
-      } else {
-          2real * eps
-      }
-  }
+spec fn geo_credit_alloc(outcome: real, eps: real) -> real {
+    if outcome == 0real { 0real } else { 2real * eps }
 }
 
+/// Geometric distribution sampler (unbounded).
+/// Creates thin-air error credit and delegates to the bounded version.
+pub fn geometric() -> (ret: u64)
+{
+    let Tracked(input_credit) = thin_air();
+
+    let ghost depth: nat;
+    let ghost eps: real;
+
+    proof {
+        if input_credit.view().value() =~= None { } // OBSERVE
+    }
+    assert(exists |v: real| input_credit.view().value() == Some(v));
+
+    proof {
+        eps = choose |v: real| input_credit.view().value() == Some(v);
+        pure_fact_with_base(eps, 2real);
+        depth = choose |k: nat| eps * pow(2real, k) >= 1real;
+    }
+
+    bounded_geometric(Tracked(input_credit), Ghost(depth))
+}
+
+pub fn bounded_geometric(
+    Tracked(input_credit): Tracked<ErrorCreditResource>,
+    Ghost(depth): Ghost<nat>,
+) -> (ret: u64)
+    requires
+        exists |eps: real| {
+            &&& eps > 0real
+            &&& input_credit.view() =~= (ErrorCreditCarrier::Value { car: eps })
+            &&& eps * pow(2real, depth) >= 1real
+        },
+    ensures
+        ret >= 0,
+    decreases depth,
+{
+    let ghost eps: real;
+
+    proof {
+        eps = choose |v: real| {
+            &&& v > 0real
+            &&& input_credit.view() =~= (ErrorCreditCarrier::Value { car: v })
+            &&& v * pow(2real, depth) >= 1real
+        };
+
+        // Base case: depth == 0 implies eps >= 1, contradiction
+        if depth == 0nat {
+            assert(pow(2real, 0nat) == 1real);
+            assert(eps >= 1real);
+            ec_contradict(&input_credit);
+        }
+    }
+
+    let (val, Tracked(outcome_credit)) = rand_1_u64(
+        Tracked(input_credit),
+        Ghost(|x: real| geo_credit_alloc(x, eps)),
+    );
+
+    if val == 0 {
+        0
+    } else {
+        let ghost new_eps = 2real * eps;
+        assert(geo_credit_alloc(val as real, eps) == new_eps);
+
+        proof {
+            // Show: new_eps * 2^(depth-1) >= 1
+            // (2 * eps) * 2^(depth-1) = eps * (2 * 2^(depth-1)) = eps * 2^depth >= 1
+            calc! {
+                (==)
+                new_eps * pow(2real, (depth - 1) as nat); {}
+                (eps * 2real) * pow(2real, (depth - 1) as nat); {
+                    real_assoc_mult(eps, 2real, pow(2real, (depth - 1) as nat));
+                }
+                eps * (2real * pow(2real, (depth - 1) as nat)); {}
+                eps * pow(2real, depth);
+            }
+            assert(new_eps * pow(2real, (depth - 1) as nat) >= 1real);
+        }
+
+        let rest = bounded_geometric(Tracked(outcome_credit), Ghost((depth - 1) as nat));
+        rest.wrapping_add(1u64)
+    }
+}
+
+#[verifier::nonlinear]
+proof fn real_assoc_mult(a: real, b: real, c: real)
+    ensures
+        a * (b * c) == (a * b) * c,
+{
+}
+
+} // verus!

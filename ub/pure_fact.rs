@@ -1,14 +1,18 @@
+// Pure mathematical facts used in error credit proofs.
+//
+// Main result: for any eps > 0 and base > 1, there exists k such that
+// eps * base^k >= 1. This is the key lemma that lets bounded samplers
+// recurse: each rejection amplifies the error credit, and after enough
+// amplifications we reach a contradiction (credit >= 1 is impossible).
 use vstd::prelude::*;
 
 verus! {
 
-pub open spec fn gt_1 (r: real) -> bool
-{
-    r > 1real
-}
-
-pub open spec fn pow(x:real, k: nat) -> real 
-    decreases k
+// ============================================================================
+// Core definitions
+// ============================================================================
+pub open spec fn pow(x: real, k: nat) -> real
+    decreases k,
 {
     if k == 0 {
         1real
@@ -17,7 +21,14 @@ pub open spec fn pow(x:real, k: nat) -> real
     }
 }
 
-// Helper: product of values >= 1 is >= 1
+/// Trigger helper for quantifying over naturals as reals
+pub open spec fn nat_to_real(n: nat) -> real {
+    n as real
+}
+
+// ============================================================================
+// Nonlinear arithmetic helpers
+// ============================================================================
 #[verifier::nonlinear]
 proof fn lemma_mul_ge_one(a: real, b: real)
     requires
@@ -28,22 +39,16 @@ proof fn lemma_mul_ge_one(a: real, b: real)
 {
 }
 
-// Helper: pow(r, k) >= 1 when r >= 1
-proof fn lemma_pow_ge_one(r: real, k: nat)
+#[verifier::nonlinear]
+proof fn lemma_mul_mono(a: real, b: real, c: real)
     requires
-        r >= 1real,
+        a >= b,
+        c > 0real,
     ensures
-        pow(r, k) >= 1real,
-    decreases k
+        c * a >= c * b,
 {
-    if k == 0 {
-    } else {
-        lemma_pow_ge_one(r, (k - 1) as nat);
-        lemma_mul_ge_one(r, pow(r, (k - 1) as nat));
-    }
 }
 
-// Division properties
 #[verifier::nonlinear]
 proof fn lemma_div_pos(x: real)
     requires
@@ -72,107 +77,95 @@ proof fn lemma_div_nonneg(x: real, y: real)
 {
 }
 
-// Spec function for trigger
-pub open spec fn nat_to_real(n: nat) -> real {
-    n as real
+// ============================================================================
+// Bernoulli's inequality
+// ============================================================================
+// pow(r, k) >= 1 when r >= 1
+proof fn lemma_pow_ge_one(r: real, k: nat)
+    requires
+        r >= 1real,
+    ensures
+        pow(r, k) >= 1real,
+    decreases k,
+{
+    if k > 0 {
+        lemma_pow_ge_one(r, (k - 1) as nat);
+        lemma_mul_ge_one(r, pow(r, (k - 1) as nat));
+    }
 }
 
-// Bernoulli's inequality: (1 + δ)^k ≥ 1 + k*δ for δ > 0
-// This gives us: pow(r, k) ≥ 1 + k*(r-1) for r > 1
+/// Bernoulli's inequality: pow(r, k) >= 1 + k*(r-1) for r > 1
+///
+/// Proof by induction on k. The inductive step uses:
+///   r * pow(r, k-1) >= r * (1 + (k-1)*delta)
+///                    = 1 + k*delta + (k-1)*delta^2
+///                    >= 1 + k*delta
 proof fn lemma_bernoulli(r: real, k: nat)
     requires
         r > 1real,
     ensures
         pow(r, k) >= 1real + nat_to_real(k) * (r - 1real),
-    decreases k
+    decreases k,
 {
-    let delta = r - 1real;
     if k == 0 {
         assert(pow(r, 0nat) == 1real);
         assert(nat_to_real(0nat) == 0real);
-        assert(1real + 0real * delta == 1real);
     } else {
         let prev = (k - 1) as nat;
         lemma_bernoulli(r, prev);
-        // IH: pow(r, prev) >= 1 + prev*delta
-        // Goal: pow(r, k) = r * pow(r, prev) >= 1 + k*delta
-
-        // r * pow(r, prev) >= r * (1 + prev*delta)   [by IH and r > 0]
-        //                   = r + r*prev*delta
-        //                   = (1 + delta) + (1 + delta)*prev*delta
-        //                   = 1 + delta + prev*delta + prev*delta²
-        //                   = 1 + (1 + prev)*delta + prev*delta²
-        //                   = 1 + k*delta + prev*delta²
-        //                   >= 1 + k*delta   [since prev*delta² >= 0]
-
         lemma_pow_ge_one(r, prev);
-        lemma_bernoulli_step(r, prev, delta);
+        lemma_bernoulli_step(r, prev, r - 1real);
     }
 }
 
-// Helper for Bernoulli inductive step
 #[verifier::nonlinear]
 proof fn lemma_bernoulli_step(r: real, prev: nat, delta: real)
     requires
         r > 1real,
         delta == r - 1real,
-        delta > 0real,
         pow(r, prev) >= 1real + nat_to_real(prev) * delta,
     ensures
         r * pow(r, prev) >= 1real + nat_to_real(prev + 1) * delta,
 {
-    // r * pow(r, prev) >= r * (1 + prev*delta)
-    //                   = r + r*prev*delta
-    // Need to show: r + r*prev*delta >= 1 + (prev+1)*delta
-    //             = r + r*prev*delta >= 1 + prev*delta + delta
-    //             = r - 1 - delta + r*prev*delta - prev*delta >= 0
-    //             = delta - delta + (r-1)*prev*delta >= 0
-    //             = delta*prev*delta >= 0
-    // Which is true since delta > 0 and prev >= 0
 }
 
+// ============================================================================
+// Archimedean properties
+// ============================================================================
+// For any x >= 0, there exists a natural number n >= x
 proof fn archimedean_nat(x: real)
     requires
         x >= 0real,
     ensures
-        exists |n: nat| #[trigger] nat_to_real(n) >= x,
+        exists|n: nat| #[trigger] nat_to_real(n) >= x,
 {
     let a: nat = x.floor() as nat;
-    assert(x < nat_to_real(a + 1));   
+    assert(x < nat_to_real(a + 1));
 }
 
-// Archimedean property for powers: powers of r > 1 grow without bound
-// Proven using Bernoulli's inequality
+/// Archimedean property for powers: for any r > 1 and target > 0,
+/// there exists k such that r^k >= target.
+///
+/// Proof: by Bernoulli, r^k >= 1 + k*(r-1). Choose k >= (target-1)/(r-1).
+// TODO: we can reduce the number of lemmas by declaring this as `non_linear`
 proof fn archimedean_pow(r: real, target: real)
     requires
         r > 1real,
         target > 0real,
     ensures
-        exists |k: nat| #[trigger] pow(r, k) >= target,
+        exists|k: nat| #[trigger] pow(r, k) >= target,
 {
-    let delta = r - 1real;
-
     if target <= 1real {
-        // k = 0 works: pow(r, 0) = 1 >= target
         assert(pow(r, 0nat) == 1real);
         assert(pow(r, 0nat) >= target);
     } else {
-        // Need k such that pow(r, k) >= target
-        // By Bernoulli: pow(r, k) >= 1 + k*delta
-        // So it suffices to find k such that 1 + k*delta >= target
-        // i.e., k*delta >= target - 1
-        // i.e., k >= (target - 1)/delta
-
-        // By Archimedean property for naturals, such k exists
+        let delta = r - 1real;
         lemma_div_pos(delta);
         let bound = (target - 1real) / delta;
         lemma_div_nonneg(target - 1real, delta);
         archimedean_nat(bound);
-        let k = choose |k: nat| #[trigger] nat_to_real(k) >= bound;
-
-        // Now show pow(r, k) >= target
+        let k = choose|k: nat| #[trigger] nat_to_real(k) >= bound;
         lemma_bernoulli(r, k);
-        // pow(r, k) >= 1 + k*delta >= 1 + bound*delta = 1 + (target-1) = target
         lemma_archimedean_final(r, k, target, delta, bound);
     }
 }
@@ -182,7 +175,6 @@ proof fn lemma_archimedean_final(r: real, k: nat, target: real, delta: real, bou
     requires
         r > 1real,
         delta == r - 1real,
-        delta > 0real,
         target > 1real,
         bound == (target - 1real) / delta,
         nat_to_real(k) >= bound,
@@ -190,61 +182,24 @@ proof fn lemma_archimedean_final(r: real, k: nat, target: real, delta: real, bou
     ensures
         pow(r, k) >= target,
 {
-    // k >= bound = (target - 1)/delta
-    // So k*delta >= target - 1
-    // So 1 + k*delta >= target
-    // And pow(r, k) >= 1 + k*delta >= target
 }
 
-// Helper: if a >= b and c > 0, then c * a >= c * b
-#[verifier::nonlinear]
-proof fn lemma_mul_mono(a: real, b: real, c: real)
+/// For any eps > 0 and any base > 1, there exists k such that eps * base^k >= 1.
+// TODO: we can reduce the number of lemmas by declaring this as `non_linear`
+pub proof fn pure_fact_with_base(eps: real, base: real)
     requires
-        a >= b,
-        c > 0real,
-    ensures
-        c * a >= c * b,
-{
-}
-
-pub proof fn pure_fact(epsilon: real)
-    requires
-        epsilon > 0real,
-    ensures
-        forall |r: real| #[trigger]gt_1(r) ==>
-            exists |k : nat| epsilon * #[trigger]pow(r, k) >= 1real,
-{
-    assert forall |r: real| #[trigger]gt_1(r) implies
-        exists |k : nat| epsilon * #[trigger]pow(r, k) >= 1real
-    by {
-        // For any r > 1 and epsilon > 0, there exists k such that epsilon * r^k >= 1
-        // By Archimedean property, there exists k such that r^k >= 1/epsilon
-        lemma_div_pos(epsilon);
-        archimedean_pow(r, 1real / epsilon);
-        let k = choose |k: nat| #[trigger] pow(r, k) >= 1real / epsilon;
-        // Since pow(r, k) >= 1/epsilon and epsilon > 0, we have epsilon * pow(r, k) >= 1
-        lemma_mul_mono(pow(r, k), 1real / epsilon, epsilon);
-        lemma_mul_div_cancel(epsilon);
-    }
-}
-
-/// Given epsilon > 0 and base > 1, there exists k such that epsilon * base^k >= 1
-pub proof fn pure_fact_with_base(epsilon: real, base: real)
-    requires
-        epsilon > 0real,
+        eps > 0real,
         base > 1real,
     ensures
-        exists |k: nat| epsilon * pow(base, k) >= 1real,
+        exists|k: nat| eps * pow(base, k) >= 1real,
 {
-    lemma_div_pos(epsilon);
-    archimedean_pow(base, 1real / epsilon);
-    let k = choose |k: nat| #[trigger] pow(base, k) >= 1real / epsilon;
-    lemma_mul_mono(pow(base, k), 1real / epsilon, epsilon);
-    lemma_mul_div_cancel(epsilon);
+    // By Archimedean property, there exists k such that base^k >= 1/eps
+    lemma_div_pos(eps);
+    archimedean_pow(base, 1real / eps);
+    let k = choose|k: nat| #[trigger] pow(base, k) >= 1real / eps;
+    // Since base^k >= 1/eps and eps > 0, we have eps * base^k >= 1
+    lemma_mul_mono(pow(base, k), 1real / eps, eps);
+    lemma_mul_div_cancel(eps);
 }
 
-}
-
-fn main() {}
-
-
+} // verus!

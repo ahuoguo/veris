@@ -97,6 +97,22 @@ impl ErrorCreditResource {
     }
 }
 
+pub proof fn ec_contradict(tracked e: &ErrorCreditResource)
+    requires
+        exists |car: real| {
+            &&& car >= 1real 
+            &&& e.view() =~= (ErrorCreditCarrier::Value { car })
+        }
+    ensures
+        false,
+{
+    let car = choose|v: real| e.view() == (ErrorCreditCarrier::Value { car: v });
+    e.explode(car);
+    e.valid();
+    assert(!e.view().valid());
+}
+
+
 } // verus!
 
 fn main() {}

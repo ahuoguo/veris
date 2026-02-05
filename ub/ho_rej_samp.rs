@@ -16,8 +16,8 @@
 use vstd::prelude::*;
 use vstd::calc_macro::*;
 use crate::ub::*;
-use crate::rand_primitives::{rand_u64, rand_1_u64, thin_air, ec_contradict, average};
-use crate::pure_fact::{gt_1, pow, pure_fact_with_base};
+use crate::rand_primitives::{rand_u64, rand_1_u64, thin_air, average, sum_credit};
+use crate::pure_fact::{pow, pure_fact_with_base};
 
 verus! {
 
@@ -235,175 +235,97 @@ proof fn lemma_div_gt_1(a: real, b: real)
 // Lemmas for average bound
 // ============================================================================
 
-/// The e2 function for threshold checking
-/// Amplification factor = bound / (bound - threshold)
-/// This ensures average(bound, e2) == eps exactly
-pub open spec fn threshold_e2(bound: u64, threshold: u64, eps: real) -> spec_fn(real) -> real {
+/// Credit allocation for uniform threshold sampling.
+/// - For outcomes i < threshold: credit = 0 (accepted, no amplification needed)
+/// - For outcomes i >= threshold: credit = amp * eps where amp = bound / (bound - threshold)
+pub open spec fn threshold_credit_alloc(bound: u64, threshold: u64, eps: real) -> spec_fn(real) -> real {
     |i: real| if i < threshold as real { 0real } else { (bound as real / (bound - threshold) as real) * eps }
 }
 
-/// Recursive spec for sum of e2 over [0, n)
-pub open spec fn sum_e2(e2: spec_fn(real) -> real, n: nat) -> real
-    decreases n,
-{
-    if n == 0 { 0real }
-    else { sum_e2(e2, (n - 1) as nat) + e2((n - 1) as real) }
-}
-
-/// Lemma: fold_left equals sum_e2
-proof fn lemma_fold_left_sum(e2: spec_fn(real) -> real, n: nat)
-    ensures
-        Seq::new(n, |i: int| i).fold_left(0real, |acc: real, x: int| acc + e2(x as real)) == sum_e2(e2, n),
-    decreases n,
-{
-    let s = Seq::new(n, |i: int| i);
-    if n == 0 {
-        assert(s =~= Seq::<int>::empty());
-    } else {
-        let s_prev = Seq::new((n - 1) as nat, |i: int| i);
-        assert(s.drop_last() =~= s_prev);
-        assert(s.last() == (n - 1) as int);
-        lemma_fold_left_sum(e2, (n - 1) as nat);
-    }
-}
-
-/// Trigger helper for e2
-spec fn e2_at(e2: spec_fn(real) -> real, i: nat) -> real {
-    e2(i as real)
-}
-
-/// Lemma: sum of zeros is zero
-proof fn lemma_sum_zeros(e2: spec_fn(real) -> real, n: nat)
-    requires
-        forall |i: nat| i < n ==> #[trigger] e2_at(e2, i) == 0real,
-    ensures
-        sum_e2(e2, n) == 0real,
-    decreases n,
-{
-    if n > 0 {
-        lemma_sum_zeros(e2, (n - 1) as nat);
-        let ghost idx: nat = (n - 1) as nat;
-        assert(idx < n);
-        assert(e2_at(e2, idx) == 0real);
-        assert(e2(idx as real) == 0real);
-    }
-}
-
-/// Lemma: sum of constants
-proof fn lemma_sum_constants(e2: spec_fn(real) -> real, start: nat, count: nat, c: real)
-    requires
-        forall |i: nat| start <= i < start + count ==> #[trigger] e2_at(e2, i) == c,
-    ensures
-        sum_e2(e2, start + count) - sum_e2(e2, start) == count as real * c,
-    decreases count,
-{
-    if count == 0 {
-        assert(sum_e2(e2, start + 0) - sum_e2(e2, start) == 0real);
-    } else {
-        let ghost idx: nat = (start + count - 1) as nat;
-        assert(start <= idx < start + count);
-        // Instantiate the forall
-        assert(e2_at(e2, idx) == c);
-        assert(e2(idx as real) == c);
-
-        lemma_sum_constants(e2, start, (count - 1) as nat, c);
-        // IH: sum_e2(e2, start + count - 1) - sum_e2(e2, start) == (count - 1) * c
-
-        // By definition of sum_e2:
-        // sum_e2(e2, start + count) = sum_e2(e2, start + count - 1) + e2((start + count - 1) as real)
-        assert(sum_e2(e2, (start + count) as nat) == sum_e2(e2, (start + count - 1) as nat) + e2((start + count - 1) as real));
-
-        // Therefore:
-        // sum_e2(e2, start + count) - sum_e2(e2, start)
-        //   = sum_e2(e2, start + count - 1) + e2(start + count - 1) - sum_e2(e2, start)
-        //   = (count - 1) * c + c
-        //   = count * c
-        assert(sum_e2(e2, start + count) - sum_e2(e2, start) == count as real * c) by(nonlinear_arith)
-            requires
-                sum_e2(e2, (start + count - 1) as nat) - sum_e2(e2, start) == (count - 1) as real * c,
-                sum_e2(e2, (start + count) as nat) == sum_e2(e2, (start + count - 1) as nat) + c,
-        ;
-    }
-}
-
-/// Lemma: sum of threshold_e2
-/// Sum = 0 * threshold + amp * eps * (bound - threshold) = bound * eps
-proof fn lemma_sum_threshold_e2(bound: u64, threshold: u64, eps: real)
+/// Lemma: sum_credit(threshold_credit_alloc, n) for n <= threshold is 0,
+///        and for n > threshold equals (n - threshold) * amp * eps
+proof fn lemma_sum_threshold(bound: u64, threshold: u64, eps: real, n: nat)
     requires
         bound > 0,
         threshold < bound,
+        n <= bound,
     ensures
-        sum_e2(threshold_e2(bound, threshold, eps), bound as nat) == bound as real * eps,
+        n <= threshold ==> sum_credit(threshold_credit_alloc(bound, threshold, eps), n) == 0real,
+        n > threshold ==> sum_credit(threshold_credit_alloc(bound, threshold, eps), n) ==
+            (n - threshold) as real * (bound as real / (bound - threshold) as real) * eps,
+    decreases n,
 {
-    let e2 = threshold_e2(bound, threshold, eps);
+    let credit_alloc = threshold_credit_alloc(bound, threshold, eps);
     let amp = bound as real / (bound - threshold) as real;
 
-    // Sum over [0, threshold) is 0
-    assert forall |i: nat| i < threshold as nat implies #[trigger] e2_at(e2, i) == 0real by {
-        assert((i as real) < threshold as real);
+    if n == 0 {
+        // Base case: sum of empty range is 0
+    } else {
+        lemma_sum_threshold(bound, threshold, eps, (n - 1) as nat);
+        let prev_sum = sum_credit(credit_alloc, (n - 1) as nat);
+        let curr_credit = credit_alloc((n - 1) as real);
+
+        if n <= threshold {
+            // n-1 < threshold, so credit_alloc(n-1) = 0
+            assert(((n - 1) as real) < threshold as real);
+            assert(curr_credit == 0real);
+            // prev_sum == 0 by IH (since n-1 <= threshold)
+        } else if (n - 1) as nat <= threshold as nat {
+            // Transition case: n > threshold but n-1 <= threshold
+            // So n-1 == threshold, meaning n == threshold + 1
+            // credit_alloc(n-1) = credit_alloc(threshold) = amp * eps (since threshold >= threshold)
+            assert(!(((n - 1) as real) < threshold as real));
+            assert(curr_credit == amp * eps);
+            // prev_sum == 0 by IH (since n-1 <= threshold)
+            assert(prev_sum == 0real);
+            // sum = 0 + amp * eps = 1 * amp * eps = (n - threshold) * amp * eps
+            assert((n - threshold) as nat == 1nat);
+            assert((n - threshold) as real == 1real);
+            assert(sum_credit(credit_alloc, n) == amp * eps);
+            assert((n - threshold) as real * amp * eps == amp * eps) by(nonlinear_arith)
+                requires (n - threshold) as real == 1real;
+            assert(sum_credit(credit_alloc, n) == (n - threshold) as real * amp * eps);
+        } else {
+            // Both in rejected region: n > threshold and n-1 > threshold
+            assert(!(((n - 1) as real) < threshold as real));
+            assert(curr_credit == amp * eps);
+            // prev_sum == (n-1-threshold) * amp * eps by IH
+            // sum = prev_sum + amp * eps = (n-threshold) * amp * eps
+            assert(sum_credit(credit_alloc, n) == (n - threshold) as real * amp * eps) by(nonlinear_arith)
+                requires
+                    prev_sum == ((n - 1) as nat - threshold as nat) as real * amp * eps,
+                    curr_credit == amp * eps,
+                    sum_credit(credit_alloc, n) == prev_sum + curr_credit,
+                    n > threshold,
+            ;
+        }
     }
-    lemma_sum_zeros(e2, threshold as nat);
-    assert(sum_e2(e2, threshold as nat) == 0real);
-
-    // Sum over [threshold, bound) is (bound - threshold) * amp * eps
-    assert forall |i: nat| threshold as nat <= i < bound as nat implies #[trigger] e2_at(e2, i) == amp * eps by {
-        assert(!((i as real) < threshold as real));
-    }
-    let ghost c = amp * eps;
-    lemma_sum_constants(e2, threshold as nat, (bound - threshold) as nat, c);
-    // From lemma_sum_constants:
-    // sum_e2(e2, threshold + (bound - threshold)) - sum_e2(e2, threshold) == (bound - threshold) * c
-    let ghost diff = sum_e2(e2, threshold as nat + (bound - threshold) as nat) - sum_e2(e2, threshold as nat);
-    assert(diff == (bound - threshold) as real * c);
-
-    // threshold + (bound - threshold) == bound
-    assert((threshold as nat + (bound - threshold) as nat) == bound as nat);
-
-    // So: sum_e2(e2, bound) - sum_e2(e2, threshold) == (bound - threshold) * c
-    // which equals sum_e2(e2, threshold) + (bound - threshold) * c
-
-    // (bound - threshold) * c = (bound - threshold) * amp * eps = bound * eps
-    assert((bound - threshold) as real * c == bound as real * eps) by(nonlinear_arith)
-        requires
-            c == amp * eps,
-            amp == bound as real / (bound - threshold) as real,
-            bound > threshold,
-            bound > 0,
-    ;
-
-    // sum_e2(e2, threshold) == 0, so:
-    // sum_e2(e2, bound) == 0 + bound * eps == bound * eps
 }
 
-// TODO: why you can't prove everything on top of fold_left
-/// Lemma: eps >= average(bound, threshold_e2)
+/// Lemma: eps >= average(bound, threshold_credit_alloc)
 ///
-/// Proof sketch:
-/// - e2(i) = 0 if i < threshold, else (bound/(bound-threshold)) * eps
-/// - Sum = (bound/(bound-threshold)) * eps * (bound - threshold) = eps * bound
-/// - Average = eps * bound / bound = eps
-/// - So eps >= average holds with equality!
+/// Proof: sum = (bound - threshold) * amp * eps = bound * eps, so average = eps
 proof fn lemma_average_bound(bound: u64, threshold: u64, eps: real)
     requires
         bound > 0,
         threshold < bound,
         eps > 0real,
     ensures
-        eps >= average(bound, threshold_e2(bound, threshold, eps)),
+        eps >= average(bound, threshold_credit_alloc(bound, threshold, eps)),
 {
-    let e2 = threshold_e2(bound, threshold, eps);
+    let credit_alloc = threshold_credit_alloc(bound, threshold, eps);
+    let amp = bound as real / (bound - threshold) as real;
 
-    // Show fold_left equals sum_e2
-    lemma_fold_left_sum(e2, bound as nat);
+    lemma_sum_threshold(bound, threshold, eps, bound as nat);
+    // sum_credit = (bound - threshold) * amp * eps
 
-    // Show sum_e2 equals bound * eps
-    lemma_sum_threshold_e2(bound, threshold, eps);
-
+    // (bound - threshold) * amp * eps = (bound - threshold) * (bound / (bound - threshold)) * eps = bound * eps
     // average = sum / bound = (bound * eps) / bound = eps
-    assert(average(bound, e2) == eps) by(nonlinear_arith)
+    assert(average(bound, credit_alloc) == eps) by(nonlinear_arith)
         requires
-            sum_e2(e2, bound as nat) == bound as real * eps,
-            Seq::new(bound as nat, |i: int| i).fold_left(0real, |acc: real, x: int| acc + e2(x as real)) == sum_e2(e2, bound as nat),
+            sum_credit(credit_alloc, bound as nat) == (bound - threshold) as real * amp * eps,
+            amp == bound as real / (bound - threshold) as real,
+            bound > threshold,
             bound > 0,
     ;
 }
@@ -443,7 +365,7 @@ impl SamplingScheme for UniformThresholdScheme {
 
     fn sample(
         &self,
-        Tracked(e): Tracked<ErrorCreditResource>,
+        Tracked(input_credit): Tracked<ErrorCreditResource>,
         Ghost(eps): Ghost<real>,
     ) -> (ret: (u64, SampleOutcome))
         ensures
@@ -458,24 +380,22 @@ impl SamplingScheme for UniformThresholdScheme {
                 }
             },
     {
-        // Define error function: 0 if accepted, amp*eps if rejected
-        // where amp = bound / (bound - threshold)
-        let ghost e2 = threshold_e2(self.bound, self.threshold, eps);
+        let ghost credit_alloc = threshold_credit_alloc(self.bound, self.threshold, eps);
 
         proof {
             // valid() ensures threshold < bound, which gives us preconditions for lemma_average_bound
             lemma_average_bound(self.bound, self.threshold, eps);
         }
 
-        let (val, Tracked(e1)) = rand_u64(self.bound, Tracked(e), Ghost(e2));
+        let (val, Tracked(outcome_credit)) = rand_u64(self.bound, Tracked(input_credit), Ghost(credit_alloc));
 
         if val < self.threshold {
             proof {
-                assert(e2(val as real) == 0real);
+                assert(credit_alloc(val as real) == 0real);
             }
             (val, SampleOutcome::Accepted)
         } else {
-            (val, SampleOutcome::Rejected(Tracked(e1)))
+            (val, SampleOutcome::Rejected(Tracked(outcome_credit)))
         }
     }
 
@@ -486,10 +406,6 @@ impl SamplingScheme for UniformThresholdScheme {
     }
 }
 
-// ============================================================================
-// Example
-// ============================================================================
-
 /// Example: Sample from [0, 8) but only accept < 5
 /// Rejection rate = 3/8, so amp = 8/3
 pub fn example_rejection_sampler() -> (ret: u64)
@@ -497,10 +413,7 @@ pub fn example_rejection_sampler() -> (ret: u64)
 {
     let scheme = UniformThresholdScheme { bound: 8, threshold: 5 };
     proof {
-        // valid: threshold < bound (5 < 8 ✓)
         assert(scheme.valid());
-
-        // amp = 8/(8-5) = 8/3 > 1
         lemma_div_gt_1(8real, 3real);
         assert(scheme.amp() > 1real);
     }

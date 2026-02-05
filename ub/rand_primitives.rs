@@ -5,13 +5,22 @@ use vstd::prelude::*;
 verus! {
 
 use crate::ub::*;
-use crate::pure_fact::{gt_1, pow};
+use crate::pure_fact::pow;
 
-pub open spec fn average(bound: u64, e2: spec_fn(real) -> real) -> real {
-    let inputs: Seq<int> = Seq::new(bound as nat, |i: int| i);
-    let nom = inputs.fold_left(0real, |acc: real, x| acc + e2(x as real));
-    let denom = bound as real;
-    nom / denom
+/// Recursive sum of credit_alloc over [0, n)
+/// credit_alloc(i) is the error credit allocated to outcome i
+/// Defining this using `fold_left` was not that pleasant to work with
+pub open spec fn sum_credit(credit_alloc: spec_fn(real) -> real, n: nat) -> real
+    decreases n,
+{
+    if n == 0 { 0real }
+    else { sum_credit(credit_alloc, (n - 1) as nat) + credit_alloc((n - 1) as real) }
+}
+
+/// Average of credit_alloc over [0, bound)
+/// This is the expected error credit when sampling uniformly from [0, bound)
+pub open spec fn average(bound: u64, credit_alloc: spec_fn(real) -> real) -> real {
+    sum_credit(credit_alloc, bound as nat) / bound as real
 }
 
 //// Wrappers
@@ -22,20 +31,18 @@ pub fn rand_u64(
     Tracked(e1): Tracked<ErrorCreditResource>,
     Ghost(e2): Ghost<spec_fn(real) -> real>,
 ) -> (ret: (
+    // TODO: can't have return value like this: ((n, e2): (u64, Tracked<ErrorCreditResource>))
     u64,
     Tracked<ErrorCreditResource>,
 ))
-// TODO: can't have return value like this: ((n, e2): (u64, Tracked<ErrorCreditResource>))
     requires
-      // Σ ℰ2(i) / bound = ε1
-      bound > 0,
-    //   (ErrorCreditCarrier::Value { car: average(bound, e2) }) =~= e1.view(),
-      exists |eps: real| (ErrorCreditCarrier::Value { car: eps } =~= e1.view()) &&
-          eps >= average(bound, e2),
+      // ε₁ ≥ 𝔼(ℰ₂)
+      bound > 0,  // bound is the finite support
+      exists |eps: real| (ErrorCreditCarrier::Value { car: eps } =~= e1.view()) && eps >= average(bound, e2),
     ensures
       // Result is in range [0, bound)
       ret.0 < bound,
-      // owns ↯(ℰ2(n))
+      // owns ↯(ℰ₂(n))
       (ErrorCreditCarrier::Value { car: e2(ret.0 as real) }) =~= ret.1.view().view(),
 {
     let val: u64 = random::rand_u64(bound);
@@ -55,7 +62,7 @@ pub fn thin_air() -> (ret: Tracked<ErrorCreditResource>)
     Tracked::assume_new()
 }
 
-pub open spec fn flip_e2(x: real) -> real {
+pub open spec fn flip_credit_alloc(x: real) -> real {
     if x == 1real {
         0real
     } else {
@@ -63,75 +70,45 @@ pub open spec fn flip_e2(x: real) -> real {
     }
 }
 
-pub proof fn ec_contradict(tracked e: &ErrorCreditResource)
-    requires
-        exists |car: real| {
-            &&& car >= 1real 
-            &&& e.view() =~= (ErrorCreditCarrier::Value { car })
-        }
-    ensures
-        false,
-{
-    let car = choose|v: real| e.view() == (ErrorCreditCarrier::Value { car: v });
-    e.explode(car);
-    e.valid();
-    assert(!e.view().valid());
-}
-
-// a wrapper around `rand 1` will be very helpful for the rejection sampler example
-// so you don't need to deal with `average`
+/// A wrapper around `rand_u64(2)` for coin flip scenarios.
+/// Simplifies the average calculation to (credit_alloc(0) + credit_alloc(1)) / 2.
 pub fn rand_1_u64(
-    Tracked(e1): Tracked<ErrorCreditResource>,
-    Ghost(e2): Ghost<spec_fn(real) -> real>,
+    Tracked(input_credit): Tracked<ErrorCreditResource>,
+    Ghost(credit_alloc): Ghost<spec_fn(real) -> real>,
 ) -> (ret: (
     u64,
     Tracked<ErrorCreditResource>,
 ))
     requires
-        // Specification: ℰ2(0) + ℰ2(1) = ε1 * 2
-        exists |eps: real| (ErrorCreditCarrier::Value { car: eps } =~= e1.view()) &&
-            eps >= (e2(0real) + e2(1real)) / 2real,
-        // (ErrorCreditCarrier::Value { car: ((e2(0real) + e2(1real)) / 2real) }) =~= e1.view(),
+        exists |eps: real| (ErrorCreditCarrier::Value { car: eps } =~= input_credit.view()) &&
+            eps >= (credit_alloc(0real) + credit_alloc(1real)) / 2real,
     ensures
-        // Result is either 0 or 1
         ret.0 == 0 || ret.0 == 1,
-        (ErrorCreditCarrier::Value { car: e2(ret.0 as real) }) =~= ret.1.view().view(),
+        (ErrorCreditCarrier::Value { car: credit_alloc(ret.0 as real) }) =~= ret.1.view().view(),
 {
-    // TODO: is there a more automatic way to unfold this fold_left?
-    // if I have a fold_left that computes a sum in reals, what's the easiest way to prove its value?
-    // Prove that average(2u64, e2) equals the precondition expression
-    assert(Seq::new(2 as nat, |i: int| i) =~= seq![0int, 1int]);
-    assert(average(2u64, e2) == (e2(0real) + e2(1real)) / 2real) by {
-        calc! {
-            (==)
-            seq![0int, 1int].fold_left(0real, |acc: real, x| acc + e2(x as real)); {
-                assert(seq![0int, 1int].drop_last() =~= seq![0int]);
-            }
-            seq![0int].fold_left(0real, |acc: real, x| acc + e2(x as real)) + e2(1int as real); {
-                assert(seq![0int].drop_last() =~= seq![]);
-            }
-            (seq![].fold_left(0real, |acc: real, x: int| acc + e2(x as real)) + e2(0int as real)) + e2(1int as real);
-        }
+    // Prove that average(2, credit_alloc) == (credit_alloc(0) + credit_alloc(1)) / 2
+    // by unfolding sum_credit using asserts
+    assert(average(2u64, credit_alloc) == (credit_alloc(0real) + credit_alloc(1real)) / 2real) by {
+        // assert(sum_credit(credit_alloc, 2) == sum_credit(credit_alloc, 1) + credit_alloc(1real));
+        assert(sum_credit(credit_alloc, 1) == sum_credit(credit_alloc, 0) + credit_alloc(0real)); // OBSERVE
+        // assert(sum_credit(credit_alloc, 0) == 0real);
     };
-    let (val, e2_tracked) = rand_u64(2u64, Tracked(e1), Ghost(e2));
-    (val, e2_tracked)
+    let (val, output_credit) = rand_u64(2u64, Tracked(input_credit), Ghost(credit_alloc));
+    (val, output_credit)
 }
 
-pub fn flip(Tracked(e1): Tracked<ErrorCreditResource>) -> (ret: u64)
+pub fn flip(Tracked(input_credit): Tracked<ErrorCreditResource>) -> (ret: u64)
     requires
-        (ErrorCreditCarrier::Value { car: 0.5real }) == e1.view(),
+        (ErrorCreditCarrier::Value { car: 0.5real }) == input_credit.view(),
     ensures
-    ret == 1,
+        ret == 1,
 {
-    assert(flip_e2(0real) + flip_e2(1real) == 1real);
-    let (val, Tracked(e2)) = rand_1_u64(Tracked(e1), Ghost(|x: real| flip_e2(x)));
+    assert(flip_credit_alloc(0real) + flip_credit_alloc(1real) == 1real);
+    let (val, Tracked(outcome_credit)) = rand_1_u64(Tracked(input_credit), Ghost(|x: real| flip_credit_alloc(x)));
 
-    // TODO: some how you can't put `proof {...}` in `assert by`
-    // and `assert by {...}` is not considered as a proof block
     proof {
         if (val != 1) {
-            // owns ↯(ℰ(1)) -> contradiction
-            ec_contradict(&e2);
+            ec_contradict(&outcome_credit);
         }
     }
     assert(val == 1);

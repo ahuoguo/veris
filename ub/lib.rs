@@ -10,7 +10,7 @@ pub mod ho_rej_samp;
 fn main() {
     println!("Geometric Distribution Test");
     for _ in 0..100 {
-        println!("{}", geo::geo());
+        println!("{}", geo::geometric());
     }
 
     println!("Rejection Sampler Test");
