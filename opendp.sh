@@ -9,6 +9,6 @@ mkdir -p build
 
 cd random
 # cargo clean --release
-cargo +1.93.0 build --release
+cargo +1.93.1 build --release
 cd ..
 OPENDP_RLIB_NAME=$(find ./random/target/release/deps/ -name 'libopendp-*.rlib')
