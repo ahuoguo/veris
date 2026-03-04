@@ -95,6 +95,19 @@ impl ErrorCreditResource {
     {
         self.r.validate();
     }
+
+    // pub proof fn combine(tracked &mut self, tracked other: Self, v1: real, v2: real)
+    //     requires
+    //         old(self).view() =~= (ErrorCreditCarrier::Value { car: v1 }),
+    //         other.view() =~= (ErrorCreditCarrier::Value { car: v2 }),
+    //         v1 >= 0real,
+    //         v2 >= 0real,
+    //     ensures
+    //         self.view() =~= (ErrorCreditCarrier::Value { car: v1 + v2 }),
+    // {
+
+    // }
+
 }
 
 pub proof fn ec_contradict(tracked e: &ErrorCreditResource)
@@ -110,6 +123,28 @@ pub proof fn ec_contradict(tracked e: &ErrorCreditResource)
     e.explode(car);
     e.valid();
     assert(!e.view().valid());
+}
+
+
+// TODO: we might need to use a storage protocol to properly do this?
+/// Trusted: combine two error credits into one with summed value.
+/// Error credits are fungible: any two credits can be combined regardless of allocation origin.
+#[verifier::external_body]
+pub proof fn join_credits(
+    tracked c1: ErrorCreditResource,
+    tracked c2: ErrorCreditResource,
+    v1: real,
+    v2: real,
+) -> (tracked out: ErrorCreditResource)
+    requires
+        c1.view() =~= (ErrorCreditCarrier::Value { car: v1 }),
+        c2.view() =~= (ErrorCreditCarrier::Value { car: v2 }),
+        v1 >= 0real,
+        v2 >= 0real,
+    ensures
+        out.view() =~= (ErrorCreditCarrier::Value { car: v1 + v2 }),
+{
+    unimplemented!()
 }
 
 
