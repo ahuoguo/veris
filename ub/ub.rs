@@ -3,6 +3,9 @@ use vstd::prelude::*;
 
 verus! {
 
+// Ghost name for the single global error-credit resource location.
+pub uninterp spec fn EC_GLOBAL_LOC() -> int;
+
 // wrapper around ec, namely `↯`
 // A error credit represents a resource with a non zero value
 // https://logsem.github.io/clutch/clutch.base_logic.error_credits.html
@@ -76,6 +79,12 @@ pub struct ErrorCreditResource {
 }
 
 impl ErrorCreditResource {
+    // All error credits live at the single global location.
+    #[verifier::type_invariant]
+    closed spec fn wf(self) -> bool {
+        self.r.loc() == EC_GLOBAL_LOC()
+    }
+
     pub closed spec fn view(self) -> ErrorCreditCarrier {
         self.r.value()
     }
@@ -100,7 +109,7 @@ impl ErrorCreditResource {
 pub proof fn ec_contradict(tracked e: &ErrorCreditResource)
     requires
         exists |car: real| {
-            &&& car >= 1real 
+            &&& car >= 1real
             &&& e.view() =~= (ErrorCreditCarrier::Value { car })
         }
     ensures
@@ -110,6 +119,27 @@ pub proof fn ec_contradict(tracked e: &ErrorCreditResource)
     e.explode(car);
     e.valid();
     assert(!e.view().valid());
+}
+
+/// Combine two error credits into one with summed value.
+pub proof fn join_credits(
+    tracked c1: ErrorCreditResource,
+    tracked c2: ErrorCreditResource,
+    v1: real,
+    v2: real,
+) -> (tracked out: ErrorCreditResource)
+    requires
+        c1.view() =~= (ErrorCreditCarrier::Value { car: v1 }),
+        c2.view() =~= (ErrorCreditCarrier::Value { car: v2 }),
+        v1 >= 0real,
+        v2 >= 0real,
+    ensures
+        out.view() =~= (ErrorCreditCarrier::Value { car: v1 + v2 }),
+{
+    use_type_invariant(&c1);
+    use_type_invariant(&c2);
+    let tracked joined = c1.r.join(c2.r);
+    ErrorCreditResource { r: joined }
 }
 
 
