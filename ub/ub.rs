@@ -122,7 +122,7 @@ pub proof fn ec_contradict(tracked e: &ErrorCreditResource)
 }
 
 /// Combine two error credits into one with summed value.
-pub proof fn join_credits(
+pub proof fn ec_combine(
     tracked c1: ErrorCreditResource,
     tracked c2: ErrorCreditResource,
     v1: real,
@@ -142,6 +142,7 @@ pub proof fn join_credits(
     ErrorCreditResource { r: joined }
 }
 
+// TODO: add ec_split when needed
 
 } // verus!
 

@@ -7,7 +7,7 @@ use vstd::prelude::*;
 
 verus! {
 
-use crate::pure_fact::pow;
+use crate::math::exp::pow;
 
 // ============================================================================
 // Real arithmetic helpers
@@ -302,7 +302,7 @@ proof fn lemma_series_first_step(e: spec_fn(nat) -> real, n: nat)
 ///   geo_series_bounded_by(e, eps - slack)
 ///   ⟹ geo_series_bounded_by(shift_e(e), (2eps - e(0)) - 2·slack)
 ///
-/// Proof: 
+/// Proof:
 /// S1 = e_0 + (1/2)e_1  + ...
 /// S2 = e_1 + (1/2)e_2  + ...
 /// S1 = (1/2) S2 + e_0

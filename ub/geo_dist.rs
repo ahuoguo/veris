@@ -34,8 +34,8 @@ verus! {
 
 use crate::ub::*;
 use crate::rand_primitives::{rand_1_u64, thin_air};
-use crate::pure_fact::{pow, pure_fact_with_base};
-use crate::math::*;
+use crate::math::exp::{pow, archimedean_exp_growth};
+use crate::math::series::*;
 
 // ============================================================================
 // BigNum: external wrapper for unbounded naturals
@@ -194,14 +194,14 @@ pub fn unbounded_geo_dist(
     proof {
         slack = choose |v: real| v > 0real &&
             (ErrorCreditCarrier::Value { car: v } =~= slack_credit.view());
-        pure_fact_with_base(slack, 2real);
+        archimedean_exp_growth(slack, 2real);
         depth = choose |k: nat| slack * pow(2real, k) >= 1real;
     }
 
     let ghost eps = dist_bound + slack;
     let tracked combined: ErrorCreditResource;
     proof {
-        combined = join_credits(input_credit, slack_credit, dist_bound, slack);
+        combined = ec_combine(input_credit, slack_credit, dist_bound, slack);
     }
     bounded_geo_dist(
         Ghost(e),

@@ -2,7 +2,6 @@
 
 pub mod ub;
 pub mod rand_primitives;
-pub mod pure_fact;
 pub mod math;
 pub mod geo;
 pub mod geo_dist;

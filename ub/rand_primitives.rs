@@ -5,7 +5,7 @@ use vstd::prelude::*;
 verus! {
 
 use crate::ub::*;
-use crate::pure_fact::pow;
+use crate::math::exp::pow;
 
 /// Recursive sum of credit_alloc over [0, n)
 /// credit_alloc(i) is the error credit allocated to outcome i
@@ -37,7 +37,8 @@ pub fn rand_u64(
 ))
     requires
       // ε₁ ≥ 𝔼(ℰ₂)
-      bound > 0,  // bound is the finite support
+      bound > 0,
+      forall |i: nat| (#[trigger] e2(i as real)) >= 0real,
       exists |eps: real| (ErrorCreditCarrier::Value { car: eps } =~= e1.view()) && eps >= average(bound, e2),
     ensures
       // Result is in range [0, bound)
@@ -80,6 +81,7 @@ pub fn rand_1_u64(
     Tracked<ErrorCreditResource>,
 ))
     requires
+        forall |i: nat| (#[trigger] credit_alloc(i as real)) >= 0real,
         exists |eps: real| (ErrorCreditCarrier::Value { car: eps } =~= input_credit.view()) &&
             eps >= (credit_alloc(0real) + credit_alloc(1real)) / 2real,
     ensures

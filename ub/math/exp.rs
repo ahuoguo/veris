@@ -1,4 +1,4 @@
-// Pure mathematical facts used in error credit proofs.
+// Exponential growth: pow, Bernoulli's inequality, Archimedean properties.
 //
 // Main result: for any eps > 0 and base > 1, there exists k such that
 // eps * base^k >= 1. This is the key lemma that lets bounded samplers
@@ -186,7 +186,7 @@ proof fn lemma_archimedean_final(r: real, k: nat, target: real, delta: real, bou
 
 /// For any eps > 0 and any base > 1, there exists k such that eps * base^k >= 1.
 // TODO: we can reduce the number of lemmas by declaring this as `non_linear`
-pub proof fn pure_fact_with_base(eps: real, base: real)
+pub proof fn archimedean_exp_growth(eps: real, base: real)
     requires
         eps > 0real,
         base > 1real,
