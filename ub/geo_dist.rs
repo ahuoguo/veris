@@ -67,25 +67,6 @@ pub fn bignum_add(a: BigNum, b: BigNum) -> (ret: BigNum)
 { BigNum { val: a.val.wrapping_add(b.val) } }
 
 // ============================================================================
-// Geometric distribution precondition and credit allocation
-// ============================================================================
-
-/// Trigger helper for the two-variable existential in bounded_geo_dist precondition
-pub open spec fn geo_dist_precond(
-    e: spec_fn(nat) -> real,
-    credit: ErrorCreditCarrier,
-    depth: nat,
-    eps: real,
-    slack: real,
-) -> bool {
-    &&& eps > 0real
-    &&& slack > 0real
-    &&& credit =~= (ErrorCreditCarrier::Value { car: eps })
-    &&& geo_series_bounded_by(e, eps - slack)
-    &&& slack * pow(2real, depth) >= 1real
-}
-
-// ============================================================================
 // Credit allocation for the distribution-aware coin flip
 // ============================================================================
 
@@ -136,7 +117,7 @@ pub fn bounded_geo_dist(
     Ghost(slack): Ghost<real>,
 ) -> (ret: (BigNum, Tracked<ErrorCreditResource>))
     requires
-        forall |i: nat| #[trigger] seq_at(e, i) >= 0real,
+        forall |i: nat| (#[trigger] e(i)) >= 0real,
         eps > 0real,
         slack > 0real,
         input_credit.view() =~= (ErrorCreditCarrier::Value { car: eps }),
@@ -147,31 +128,17 @@ pub fn bounded_geo_dist(
     decreases depth,
 {
     proof {
-        // Base case: depth == 0 ⟹ eps ≥ 1 ⟹ contradiction
         if depth == 0nat {
             assert(pow(2real, 0nat) == 1real);
-            assert(partial_sum(geo_summands(e), 0nat) == 0real); // trigger series bound
+            assert(partial_sum(geo_summands(e), 0nat) == 0real);
             ec_contradict(&input_credit);
         }
 
-        // Establish eps >= e(0) from geometric series bound at n=1
-        assert(seq_at(e, 0nat) >= 0real);
+        // eps >= e(0): unfold geo_partial_sum(e,1) = e(0), trigger series bound
         assert(pow(0.5real, 0nat) == 1real);
         assert(geo_summands(e)(0nat) == pow(0.5real, 0nat) * e(0nat));
-        assert(partial_sum(geo_summands(e), 0nat) == 0real);
         assert(partial_sum(geo_summands(e), 1nat) ==
             partial_sum(geo_summands(e), 0nat) + geo_summands(e)(0nat));
-        // Now: partial_sum(..., 1) = 0 + 1*e(0) = e(0)
-        // And: eps - slack >= partial_sum(..., 1) from geo_series_bounded_by
-        assert(eps - slack >= e(0nat)) by(nonlinear_arith)
-            requires
-                eps - slack >= partial_sum(geo_summands(e), 1nat),
-                partial_sum(geo_summands(e), 1nat) ==
-                    partial_sum(geo_summands(e), 0nat) + geo_summands(e)(0nat),
-                partial_sum(geo_summands(e), 0nat) == 0real,
-                geo_summands(e)(0nat) == pow(0.5real, 0nat) * e(0nat),
-                pow(0.5real, 0nat) == 1real;
-        lemma_geo_dist_average(e, eps);
     }
 
     let ghost credit_alloc = geo_dist_credit_alloc(e, eps);
@@ -189,42 +156,10 @@ pub fn bounded_geo_dist(
         let ghost new_slack = 2real * slack;
 
         proof {
-            // Non-negativity of shift_e(e)
-            assert forall |i: nat| #[trigger] seq_at(shift_e(e), i) >= 0real by {
-                assert(seq_at(e, i + 1) >= 0real);
-            };
-
-            // Re-establish eps - slack >= e(0) in this branch
-            assert(seq_at(e, 0nat) >= 0real);
-            assert(pow(0.5real, 0nat) == 1real);
-            assert(geo_summands(e)(0nat) == pow(0.5real, 0nat) * e(0nat));
-            assert(partial_sum(geo_summands(e), 0nat) == 0real);
-            assert(partial_sum(geo_summands(e), 1nat) ==
-                partial_sum(geo_summands(e), 0nat) + geo_summands(e)(0nat));
-            assert(eps - slack >= e(0nat)) by(nonlinear_arith)
-                requires
-                    eps - slack >= partial_sum(geo_summands(e), 1nat),
-                    partial_sum(geo_summands(e), 1nat) ==
-                        partial_sum(geo_summands(e), 0nat) + geo_summands(e)(0nat),
-                    partial_sum(geo_summands(e), 0nat) == 0real,
-                    geo_summands(e)(0nat) == pow(0.5real, 0nat) * e(0nat),
-                    pow(0.5real, 0nat) == 1real;
-            // new_eps > 0: from eps >= e(0) + slack and slack > 0
-            assert(new_eps > 0real) by(nonlinear_arith)
-                requires
-                    new_eps == 2real * eps - e(0nat),
-                    eps - slack >= e(0nat),
-                    slack > 0real,
-                    e(0nat) >= 0real;
-
-            // Distribution bound for shift_e
             lemma_shift_bound(e, eps, slack);
-
-            // Termination: new_slack * pow(2, depth-1) ≥ 1
             real_assoc_mult(slack, 2real, pow(2real, (depth - 1) as nat));
-            assert(new_slack * pow(2real, (depth - 1) as nat) == slack * pow(2real, depth));
         }
-
+        
         let (rest, output_credit) = bounded_geo_dist(
             Ghost(shift_e(e)),
             Tracked(outcome_credit),
@@ -238,21 +173,13 @@ pub fn bounded_geo_dist(
     }
 }
 
-/// Unbounded geometric distribution sampler with distribution credit.
-///
-///   ε ≥ Σ_{i=0}^∞ (1/2)^i * ℰ(i)
-///   ------------------------------------
-///   [{ ↯(ε) }] geo() [{ v. ↯(ℰ(v)) }]
-///
-/// Internally allocates a thin-air credit for termination; caller only provides
-/// the distribution credit ε that bounds the geometric series.
 pub fn unbounded_geo_dist(
     Ghost(e): Ghost<spec_fn(nat) -> real>,
     Tracked(input_credit): Tracked<ErrorCreditResource>,
     Ghost(dist_bound): Ghost<real>,
 ) -> (ret: (BigNum, Tracked<ErrorCreditResource>))
     requires
-        forall |i: nat| #[trigger] seq_at(e, i) >= 0real,
+        forall |i: nat| (#[trigger] e(i)) >= 0real,
         dist_bound >= 0real,
         input_credit.view() =~= (ErrorCreditCarrier::Value { car: dist_bound }),
         geo_series_bounded_by(e, dist_bound),
@@ -276,7 +203,6 @@ pub fn unbounded_geo_dist(
     proof {
         combined = join_credits(input_credit, slack_credit, dist_bound, slack);
     }
-
     bounded_geo_dist(
         Ghost(e),
         Tracked(combined),

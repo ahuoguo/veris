@@ -267,29 +267,69 @@ pub proof fn lemma_bounded_series_summable(s: spec_fn(nat) -> real, bound: real)
 // Geometric series lemmas
 // ============================================================================
 
-/// Series shift property:
-///   geo_partial_sum(e, n+1) = e(0) + (1/2) · geo_partial_sum(shift_e(e), n)
-#[verifier::external_body]
-pub proof fn lemma_series_shift(e: spec_fn(nat) -> real, n: nat)
+/// First-step decomposition of the geometric partial sum:
+///   geo_partial_sum(e, n+1) = e(0) + 0.5 · geo_partial_sum(shift_e(e), n)
+proof fn lemma_series_first_step(e: spec_fn(nat) -> real, n: nat)
     ensures
-        geo_partial_sum(e, n + 1) ==
-            e(0nat) + 0.5real * geo_partial_sum(shift_e(e), n),
-{}
+        geo_partial_sum(e, n + 1) == e(0nat) + 0.5real * geo_partial_sum(shift_e(e), n),
+    decreases n,
+{
+    if n == 0 {
+        assert(pow(0.5real, 0nat) == 1real);
+        assert(geo_partial_sum(e, 1nat) == e(0nat)) by(nonlinear_arith)
+            requires
+                geo_partial_sum(e, 1nat) == geo_partial_sum(e, 0nat) + geo_summands(e)(0nat),
+                geo_partial_sum(e, 0nat) == 0real,
+                geo_summands(e)(0nat) == pow(0.5real, 0nat) * e(0nat),
+                pow(0.5real, 0nat) == 1real;
+    } else {
+        lemma_series_first_step(e, (n - 1) as nat);
+        assert(pow(0.5real, n) == 0.5real * pow(0.5real, (n - 1) as nat));
+        assert(geo_partial_sum(e, n + 1) == e(0nat) + 0.5real * geo_partial_sum(shift_e(e), n))
+            by(nonlinear_arith)
+            requires
+                geo_partial_sum(e, n) == e(0nat) + 0.5real * geo_partial_sum(shift_e(e), (n - 1) as nat),
+                geo_partial_sum(e, n + 1) == geo_partial_sum(e, n) + geo_summands(e)(n),
+                geo_partial_sum(shift_e(e), n) == geo_partial_sum(shift_e(e), (n - 1) as nat) + geo_summands(shift_e(e))((n - 1) as nat),
+                geo_summands(e)(n) == pow(0.5real, n) * e(n),
+                geo_summands(shift_e(e))((n - 1) as nat) == pow(0.5real, (n - 1) as nat) * e(n),
+                pow(0.5real, n) == 0.5real * pow(0.5real, (n - 1) as nat),
+        ;
+    }
+}
 
 /// Distribution bound transfers through recursion:
 ///   geo_series_bounded_by(e, eps - slack)
 ///   ⟹ geo_series_bounded_by(shift_e(e), (2eps - e(0)) - 2·slack)
-#[verifier::external_body]
+///
+/// Proof: 
+/// S1 = e_0 + (1/2)e_1  + ...
+/// S2 = e_1 + (1/2)e_2  + ...
+/// S1 = (1/2) S2 + e_0
+/// so if S1 ≤ eps - slack and e_0 ≥ 0, then S2 ≤ 2eps - e_0 - 2slack
 pub proof fn lemma_shift_bound(e: spec_fn(nat) -> real, eps: real, slack: real)
     requires
-        forall |i: nat| #[trigger] seq_at(e, i) >= 0real,
+        forall |i: nat| (#[trigger] e(i)) >= 0real,
         geo_series_bounded_by(e, eps - slack),
     ensures
         geo_series_bounded_by(
             shift_e(e),
             (2real * eps - e(0nat)) - 2real * slack,
         ),
-{}
+{
+    assert forall |n: nat| ((2real * eps - e(0nat)) - 2real * slack)
+        >= #[trigger] partial_sum(geo_summands(shift_e(e)), n) by
+    {
+        lemma_series_first_step(e, n);
+        assert(eps - slack >= partial_sum(geo_summands(e), n + 1));
+        assert(((2real * eps - e(0nat)) - 2real * slack) >= partial_sum(geo_summands(shift_e(e)), n))
+            by(nonlinear_arith) requires
+                geo_partial_sum(e, n + 1) == e(0nat) + 0.5real * geo_partial_sum(shift_e(e), n),
+                eps - slack >= geo_partial_sum(e, n + 1),
+                e(0nat) >= 0real,
+                geo_partial_sum(shift_e(e), n) == partial_sum(geo_summands(shift_e(e)), n);
+    };
+}
 
 /// Bounded geometric series is summable (converges via monotone convergence)
 pub proof fn lemma_geo_series_summable(e: spec_fn(nat) -> real, bound: real)
