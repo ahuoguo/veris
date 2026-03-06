@@ -4,6 +4,7 @@ use vstd::prelude::*;
 verus! {
 
 // Ghost name for the single global error-credit resource location.
+#[allow(non_snake_case)]
 pub uninterp spec fn EC_GLOBAL_LOC() -> int;
 
 // wrapper around ec, namely `↯`

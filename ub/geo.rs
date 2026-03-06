@@ -1,3 +1,5 @@
+// TODO: might remove this file, since it only reasons about termination...
+// but maybe also a nice intro to using error credits for AST?
 // Geometric Distribution Sampler
 // Samples from a geometric distribution by repeatedly flipping a fair coin.
 // Each flip either terminates (outcome 0) or recurses with doubled error credit (outcome 1).

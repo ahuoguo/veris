@@ -14,6 +14,12 @@ fn main() {
         println!("{}", geo::geometric());
     }
 
+    println!("Geometric Distribution (UBig) Test");
+    for _ in 0..100 {
+        let v = geo_dist::geo_dist_sample();
+        println!("{}", v);
+    }
+
     println!("Rejection Sampler Test");
     println!("{}", ho_rej_samp::example_rejection_sampler());
 }

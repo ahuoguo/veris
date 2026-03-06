@@ -1,7 +1,7 @@
 // Geometric Distribution with BigNums and Distribution Credit
 //
 // This extends geo.rs with:
-// 1. BigNum for unbounded output (geo.rs uses u64 with wrapping_add)
+// 1. dashu UBig for unbounded output (geo.rs uses u64 with wrapping_add)
 // 2. A distribution credit via the expectation rule:
 // https://github.com/logsem/clutch/blob/cpp26-distributions/theories/eris/lib/sampling/geometric/implementation.v#L109-L116
 //
@@ -21,6 +21,7 @@
 // finite partial sums: ∀ n. ε ≥ Σ_{i=0}^{n-1} (1/2)^(i+1) * ℰ(i).
 
 use vstd::prelude::*;
+use random::{UBig, ubig_zero, ubig_succ, ubig_add};
 
 verus! {
 
@@ -29,30 +30,25 @@ use crate::rand_primitives::{rand_1_u64, thin_air};
 use crate::math::exp::{pow, archimedean_exp_growth};
 use crate::math::series::*;
 
-// TODO: replace the runtime representation with an actual bignum library
-pub struct BigNum {
-    val: u64,
-}
+// ============================================================================
+// UBig: dashu unbounded naturals with assumed specifications
+// ============================================================================
 
-impl BigNum {
-    pub uninterp spec fn view(&self) -> nat;
-}
-
-// TODO: use assume_specification and use the actual bignum library
+#[verifier::external_type_specification]
 #[verifier::external_body]
-pub fn bignum_zero() -> (ret: BigNum)
-    ensures ret.view() == 0nat,
-{ BigNum { val: 0 } }
+pub struct ExUBig(UBig);
 
-#[verifier::external_body]
-pub fn bignum_succ(n: BigNum) -> (ret: BigNum)
-    ensures ret.view() == n.view() + 1,
-{ BigNum { val: n.val.wrapping_add(1) } }
+/// Ghost interpretation of a UBig as a nat.
+pub uninterp spec fn ubig_view(n: &UBig) -> nat;
 
-#[verifier::external_body]
-pub fn bignum_add(a: BigNum, b: BigNum) -> (ret: BigNum)
-    ensures ret.view() == a.view() + b.view(),
-{ BigNum { val: a.val.wrapping_add(b.val) } }
+pub assume_specification[ random::ubig_zero ]() -> (ret: UBig)
+    ensures ubig_view(&ret) == 0nat;
+
+pub assume_specification[ random::ubig_succ ](n: UBig) -> (ret: UBig)
+    ensures ubig_view(&ret) == ubig_view(&n) + 1;
+
+pub assume_specification[ random::ubig_add ](a: UBig, b: UBig) -> (ret: UBig)
+    ensures ubig_view(&ret) == ubig_view(&a) + ubig_view(&b);
 
 /// Credit allocation: outcome 0 → ℰ(0), outcome 1 → 2ε - ℰ(0).
 spec fn geo_dist_credit_alloc(e: spec_fn(nat) -> real, eps: real) -> spec_fn(real) -> real {
@@ -73,7 +69,7 @@ pub fn bounded_geo_dist(
     Ghost(depth): Ghost<nat>,
     Ghost(eps): Ghost<real>,
     Ghost(slack): Ghost<real>,
-) -> (ret: (BigNum, Tracked<ErrorCreditResource>))
+) -> (ret: (UBig, Tracked<ErrorCreditResource>))
     requires
         forall |i: nat| (#[trigger] e(i)) >= 0real,
         eps > 0real,
@@ -82,7 +78,7 @@ pub fn bounded_geo_dist(
         geo_series_bounded_by(e, eps - slack),
         slack * pow(2real, depth) >= 1real,
     ensures
-        ret.1@.view() =~= (ErrorCreditCarrier::Value { car: e(ret.0.view()) }),
+        ret.1@.view() =~= (ErrorCreditCarrier::Value { car: e(ubig_view(&ret.0)) }),
     decreases depth,
 {
     proof {
@@ -110,7 +106,7 @@ pub fn bounded_geo_dist(
     );
 
     if val == 0 {
-        let ret = bignum_zero();
+        let ret = ubig_zero();
         (ret, Tracked(outcome_credit))
     } else {
         let ghost new_eps = 2real * eps - e(0nat);
@@ -129,7 +125,7 @@ pub fn bounded_geo_dist(
             Ghost(new_slack),
         );
 
-        let result = bignum_succ(rest);
+        let result = ubig_succ(rest);
         (result, output_credit)
     }
 }
@@ -138,14 +134,14 @@ pub fn unbounded_geo_dist(
     Ghost(e): Ghost<spec_fn(nat) -> real>,
     Tracked(input_credit): Tracked<ErrorCreditResource>,
     Ghost(dist_bound): Ghost<real>,
-) -> (ret: (BigNum, Tracked<ErrorCreditResource>))
+) -> (ret: (UBig, Tracked<ErrorCreditResource>))
     requires
         forall |i: nat| (#[trigger] e(i)) >= 0real,
         dist_bound >= 0real,
         input_credit.view() =~= (ErrorCreditCarrier::Value { car: dist_bound }),
         geo_series_bounded_by(e, dist_bound),
     ensures
-        ret.1@.view() =~= (ErrorCreditCarrier::Value { car: e(ret.0.view()) }),
+        ret.1@.view() =~= (ErrorCreditCarrier::Value { car: e(ubig_view(&ret.0)) }),
 {
     let Tracked(slack_credit) = thin_air();
 
@@ -195,11 +191,11 @@ pub open spec fn credit_nonzero() -> spec_fn(nat) -> real {
 /// 0.5 credits -> v == 0.
 pub fn example_geo_must_be_zero(
     Tracked(credit): Tracked<ErrorCreditResource>,
-) -> (ret: BigNum)
+) -> (ret: UBig)
     requires
         credit.view() =~= (ErrorCreditCarrier::Value { car: 0.5real }),
     ensures
-        ret.view() == 0,
+        ubig_view(&ret) == 0,
 {
     let ghost e = credit_nonzero();
 
@@ -216,7 +212,7 @@ pub fn example_geo_must_be_zero(
     );
 
     proof {
-        if v.view() != 0 {
+        if ubig_view(&v) != 0 {
             ec_contradict(&out_credit);
         }
     }
@@ -301,11 +297,11 @@ pub open spec fn credit_above_one() -> spec_fn(nat) -> real {
 /// 0.25 credits -> v ≤ 1.
 pub fn example_geo_tail_bound(
     Tracked(credit): Tracked<ErrorCreditResource>,
-) -> (ret: BigNum)
+) -> (ret: UBig)
     requires
         credit.view() =~= (ErrorCreditCarrier::Value { car: 0.25real }),
     ensures
-        ret.view() <= 1,
+        ubig_view(&ret) <= 1,
 {
     let ghost e = credit_above_one();
 
@@ -322,7 +318,7 @@ pub fn example_geo_tail_bound(
     );
 
     proof {
-        if v.view() > 1 {
+        if ubig_view(&v) > 1 {
             ec_contradict(&out_credit);
         }
     }
@@ -376,6 +372,43 @@ proof fn lemma_tail_bound_tight(n: nat)
                 s(k) == pow(0.5real, k + 1) * 1real,
                 pow(0.5real, k + 1) == 0.5real * pow(0.5real, k),
                 pow(0.5real, n) == 0.5real * pow(0.5real, k);
+    }
+}
+
+/// Sample from the geometric distribution (entry point, no preconditions).
+pub fn geo_dist_sample() -> (ret: UBig)
+{
+    let ghost e: spec_fn(nat) -> real = |_v: nat| 0real;
+    let Tracked(credit) = thin_air();
+
+    proof {
+        assert forall |n: nat| 0real >= #[trigger] partial_sum(geo_summands(e), n) by {
+            lemma_zero_series_bound(e, n);
+        };
+    }
+
+    let ghost dist_bound: real;
+    proof {
+        if credit.view().value() =~= None {} // OBSERVE
+        dist_bound = choose |v: real| credit.view().value() == Some(v);
+    }
+
+    let (v, _out) = unbounded_geo_dist(
+        Ghost(e),
+        Tracked(credit),
+        Ghost(dist_bound),
+    );
+    v
+}
+
+proof fn lemma_zero_series_bound(e: spec_fn(nat) -> real, n: nat)
+    requires forall |i: nat| (#[trigger] e(i)) == 0real,
+    ensures 0real >= partial_sum(geo_summands(e), n),
+    decreases n,
+{
+    if n > 0 {
+        lemma_zero_series_bound(e, (n - 1) as nat);
+        lemma_zero_term(e, (n - 1) as nat);
     }
 }
 
