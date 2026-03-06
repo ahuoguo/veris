@@ -5,28 +5,20 @@
 // 2. A distribution credit via the expectation rule:
 // https://github.com/logsem/clutch/blob/cpp26-distributions/theories/eris/lib/sampling/geometric/implementation.v#L109-L116
 //
-//   ε ≥ Σ_{i=0}^∞ (1/2)^i * ℰ(i)
+//   ε ≥ Σ_{i=0}^∞ (1/2)^(i+1) * ℰ(i)
 //   ------------------------------------
 //   [{ ↯(ε) }] geo() [{ v. ↯(ℰ(v)) }]
 //
+// The weight (1/2)^(i+1) is the probability of outcome i (i tails then heads).
 // After geo() returns v, we own error credit ℰ(v).
 //
 // The input credit ε is split into two parts:
-// - Distribution credit (ε - slack): covers the geometric series Σ (1/2)^i * ℰ(i)
+// - Distribution credit (ε - slack): covers the geometric series Σ (1/2)^(i+1) * ℰ(i)
 // - Slack credit: reserved for termination, doubles at each recursive step
 //
-// This separation is necessary because the distribution part gets partially
-// consumed by ℰ(0) at each level, so it can't serve double duty for termination.
-//
 // Representing infinite sums in Verus:
-// We express "ε ≥ Σ_{i=0}^∞ (1/2)^i * ℰ(i)" as a universal bound over all
-// finite partial sums: ∀ n. ε ≥ Σ_{i=0}^{n-1} (1/2)^i * ℰ(i).
-
-// This diverges from clutch's usage of Coquelicot
-// https://logsem.github.io/clutch/clutch.prob.countable_sum.html
-// in SeriesC, since rocq is total, you need to pick a value for every entry n, but you still
-// want some prove some property
-// normally you want to define a / 0 = 0, to have this property without side conditoins: a1/b + a2/b = (a1 + a2) / b
+// We express "ε ≥ Σ_{i=0}^∞ (1/2)^(i+1) * ℰ(i)" as a universal bound over all
+// finite partial sums: ∀ n. ε ≥ Σ_{i=0}^{n-1} (1/2)^(i+1) * ℰ(i).
 
 use vstd::prelude::*;
 
@@ -36,10 +28,6 @@ use crate::ub::*;
 use crate::rand_primitives::{rand_1_u64, thin_air};
 use crate::math::exp::{pow, archimedean_exp_growth};
 use crate::math::series::*;
-
-// ============================================================================
-// BigNum: external wrapper for unbounded naturals
-// ============================================================================
 
 // TODO: replace the runtime representation with an actual bignum library
 pub struct BigNum {
@@ -66,15 +54,7 @@ pub fn bignum_add(a: BigNum, b: BigNum) -> (ret: BigNum)
     ensures ret.view() == a.view() + b.view(),
 { BigNum { val: a.val.wrapping_add(b.val) } }
 
-// ============================================================================
-// Credit allocation for the distribution-aware coin flip
-// ============================================================================
-
-/// Credit allocation for geo_dist coin flip:
-/// - Outcome 0 (stop):     ℰ(0)            — returned as the output credit
-/// - Outcome 1 (continue): 2*ε - ℰ(0)      — feeds the recursive call
-///
-/// Average = (ℰ(0) + 2ε - ℰ(0)) / 2 = ε, so ε >= average always holds.
+/// Credit allocation: outcome 0 → ℰ(0), outcome 1 → 2ε - ℰ(0).
 spec fn geo_dist_credit_alloc(e: spec_fn(nat) -> real, eps: real) -> spec_fn(real) -> real {
     |outcome: real|
         if outcome == 0real {
@@ -84,31 +64,9 @@ spec fn geo_dist_credit_alloc(e: spec_fn(nat) -> real, eps: real) -> spec_fn(rea
         }
 }
 
-// ============================================================================
-// Specification: bounded geometric distribution sampler
-//
-//   ε ≥ Σ_{i=0}^∞ (1/2)^i * ℰ(i)
-//   ------------------------------------
-//   [{ ↯(ε) }] geo() [{ v. ↯(ℰ(v)) }]
-//
-// For any ℰ with non-negative values, if ε covers the geometric series
-// with slack for termination, then after geo() returns v, we own ↯(ℰ(v)).
-// ============================================================================
-///
-/// Bounded geometric distribution sampler with distribution credit.
-///
-///   ε ≥ Σ_{i=0}^∞ (1/2)^i * ℰ(i)
-///   ------------------------------------
-///   [{ ↯(ε) }] geo() [{ v. ↯(ℰ(v)) }]
-///
-/// The precondition decomposes ε = (ε - slack) + slack:
-/// - `ε - slack` bounds the geometric series: ∀n. ε - slack ≥ Σ_{i<n} (1/2)^i ℰ(i)
-/// - `slack * 2^depth ≥ 1` ensures termination
-///
-/// Invariant through recursion (outcome 1, shift ℰ to ℰ' where ℰ'(i) = ℰ(i+1)):
-/// - new_ε = 2ε - ℰ(0),  new_slack = 2·slack
-/// - distribution: new_ε - new_slack = 2(ε - slack) - ℰ(0) ≥ series(ℰ')  ✓
-/// - termination:  new_slack · 2^(depth-1) = slack · 2^depth ≥ 1            ✓
+/// Bounded geometric distribution sampler.
+/// ε = (ε - slack) + slack: series bound + termination credit.
+/// On recursion: new_ε = 2ε - ℰ(0), new_slack = 2·slack.
 pub fn bounded_geo_dist(
     Ghost(e): Ghost<spec_fn(nat) -> real>,
     Tracked(input_credit): Tracked<ErrorCreditResource>,
@@ -134,9 +92,12 @@ pub fn bounded_geo_dist(
             ec_contradict(&input_credit);
         }
 
-        // eps >= e(0): unfold geo_partial_sum(e,1) = e(0), trigger series bound
+        // Unfold partial_sum(1) = 0.5·e(0) to establish eps ≥ 0.5·e(0)
         assert(pow(0.5real, 0nat) == 1real);
-        assert(geo_summands(e)(0nat) == pow(0.5real, 0nat) * e(0nat));
+        assert(pow(0.5real, 1nat) == 0.5real) by(nonlinear_arith)
+            requires pow(0.5real, 1nat) == 0.5real * pow(0.5real, 0nat),
+                pow(0.5real, 0nat) == 1real;
+        assert(geo_summands(e)(0nat) == pow(0.5real, 1nat) * e(0nat));
         assert(partial_sum(geo_summands(e), 1nat) ==
             partial_sum(geo_summands(e), 0nat) + geo_summands(e)(0nat));
     }
@@ -212,12 +173,10 @@ pub fn unbounded_geo_dist(
     )
 }
 
-/// Average of geo_dist_credit_alloc is exactly eps:
-///   (ℰ(0) + (2ε - ℰ(0))) / 2 = ε
 proof fn lemma_geo_dist_average(e: spec_fn(nat) -> real, eps: real)
     requires
         eps > 0real,
-        eps >= e(0nat),
+        2real * eps >= e(0nat),
     ensures
         eps >= (geo_dist_credit_alloc(e, eps)(0real)
               + geo_dist_credit_alloc(e, eps)(1real)) / 2real,
@@ -227,5 +186,197 @@ proof fn lemma_geo_dist_average(e: spec_fn(nat) -> real, eps: real)
 proof fn real_assoc_mult(a: real, b: real, c: real)
     ensures a * (b * c) == (a * b) * c,
 {}
+
+/// ℰ(v) = 0 if v == 0, else 1. Series = 0.5.
+pub open spec fn credit_nonzero() -> spec_fn(nat) -> real {
+    |v: nat| if v == 0 { 0real } else { 1real }
+}
+
+/// 0.5 credits -> v == 0.
+pub fn example_geo_must_be_zero(
+    Tracked(credit): Tracked<ErrorCreditResource>,
+) -> (ret: BigNum)
+    requires
+        credit.view() =~= (ErrorCreditCarrier::Value { car: 0.5real }),
+    ensures
+        ret.view() == 0,
+{
+    let ghost e = credit_nonzero();
+
+    proof {
+        assert forall |n: nat| 0.5real >= #[trigger] partial_sum(geo_summands(e), n) by {
+            lemma_must_zero_bound(n);
+        };
+    }
+
+    let (v, Tracked(out_credit)) = unbounded_geo_dist(
+        Ghost(e),
+        Tracked(credit),
+        Ghost(0.5real),
+    );
+
+    proof {
+        if v.view() != 0 {
+            ec_contradict(&out_credit);
+        }
+    }
+
+    v
+}
+
+proof fn lemma_pow_half_small()
+    ensures
+        pow(0.5real, 0nat) == 1real,
+        pow(0.5real, 1nat) == 0.5real,
+        pow(0.5real, 2nat) == 0.25real,
+        pow(0.5real, 3nat) == 0.125real,
+{
+    assert(pow(0.5real, 1nat) == 0.5real) by(nonlinear_arith)
+        requires pow(0.5real, 1nat) == 0.5real * pow(0.5real, 0nat),
+            pow(0.5real, 0nat) == 1real;
+    assert(pow(0.5real, 2nat) == 0.25real) by(nonlinear_arith)
+        requires pow(0.5real, 2nat) == 0.5real * pow(0.5real, 1nat),
+            pow(0.5real, 1nat) == 0.5real;
+    assert(pow(0.5real, 3nat) == 0.125real) by(nonlinear_arith)
+        requires pow(0.5real, 3nat) == 0.5real * pow(0.5real, 2nat),
+            pow(0.5real, 2nat) == 0.25real;
+}
+
+proof fn lemma_zero_term(s: spec_fn(nat) -> real, k: nat)
+    requires s(k) == 0real,
+    ensures geo_summands(s)(k) == 0real,
+{
+    lemma_pow_nonneg(0.5real, k + 1);
+    assert(geo_summands(s)(k) == 0real) by(nonlinear_arith)
+        requires geo_summands(s)(k) == pow(0.5real, k + 1) * 0real;
+}
+
+/// S_n + (1/2)^n ≤ 0.5 for n ≥ 1; implies 0.5 ≥ S_n for all n.
+proof fn lemma_must_zero_bound(n: nat)
+    ensures
+        0.5real >= partial_sum(geo_summands(credit_nonzero()), n),
+{
+    let e = credit_nonzero();
+    let s = geo_summands(e);
+    if n == 0 {
+    } else if n == 1 {
+        lemma_zero_term(e, 0nat);
+        assert(partial_sum(s, 1nat) == partial_sum(s, 0nat) + s(0nat));
+    } else {
+        lemma_must_zero_tight(n);
+        lemma_pow_nonneg(0.5real, n);
+    }
+}
+
+proof fn lemma_must_zero_tight(n: nat)
+    requires n >= 1,
+    ensures
+        partial_sum(geo_summands(credit_nonzero()), n) + pow(0.5real, n) <= 0.5real,
+    decreases n,
+{
+    let e = credit_nonzero();
+    let s = geo_summands(e);
+    if n == 1 {
+        lemma_zero_term(e, 0nat);
+        assert(partial_sum(s, 1nat) == partial_sum(s, 0nat) + s(0nat));
+        lemma_pow_half_small();
+    } else {
+        lemma_must_zero_tight((n - 1) as nat);
+        let k = (n - 1) as nat;
+        assert(partial_sum(s, n) + pow(0.5real, n) == partial_sum(s, k) + pow(0.5real, k))
+            by(nonlinear_arith)
+            requires
+                partial_sum(s, n) == partial_sum(s, k) + s(k),
+                s(k) == pow(0.5real, k + 1) * 1real,
+                pow(0.5real, k + 1) == 0.5real * pow(0.5real, k),
+                pow(0.5real, n) == 0.5real * pow(0.5real, k);
+    }
+}
+
+/// ℰ(v) = 0 if v ≤ 1, else 1. Series = 0.25.
+pub open spec fn credit_above_one() -> spec_fn(nat) -> real {
+    |v: nat| if v <= 1 { 0real } else { 1real }
+}
+
+/// 0.25 credits -> v ≤ 1.
+pub fn example_geo_tail_bound(
+    Tracked(credit): Tracked<ErrorCreditResource>,
+) -> (ret: BigNum)
+    requires
+        credit.view() =~= (ErrorCreditCarrier::Value { car: 0.25real }),
+    ensures
+        ret.view() <= 1,
+{
+    let ghost e = credit_above_one();
+
+    proof {
+        assert forall |n: nat| 0.25real >= #[trigger] partial_sum(geo_summands(e), n) by {
+            lemma_tail_bound(n);
+        };
+    }
+
+    let (v, Tracked(out_credit)) = unbounded_geo_dist(
+        Ghost(e),
+        Tracked(credit),
+        Ghost(0.25real),
+    );
+
+    proof {
+        if v.view() > 1 {
+            ec_contradict(&out_credit);
+        }
+    }
+
+    v
+}
+
+/// S_n + (1/2)^n ≤ 0.25 for n ≥ 2; implies 0.25 ≥ S_n for all n.
+proof fn lemma_tail_bound(n: nat)
+    ensures
+        0.25real >= partial_sum(geo_summands(credit_above_one()), n),
+{
+    let e = credit_above_one();
+    let s = geo_summands(e);
+    if n == 0 {
+    } else if n == 1 {
+        lemma_zero_term(e, 0nat);
+        assert(partial_sum(s, 1nat) == partial_sum(s, 0nat) + s(0nat));
+    } else if n == 2 {
+        lemma_zero_term(e, 0nat);
+        lemma_zero_term(e, 1nat);
+        assert(partial_sum(s, 1nat) == partial_sum(s, 0nat) + s(0nat));
+        assert(partial_sum(s, 2nat) == partial_sum(s, 1nat) + s(1nat));
+    } else {
+        lemma_tail_bound_tight(n);
+        lemma_pow_nonneg(0.5real, n);
+    }
+}
+
+proof fn lemma_tail_bound_tight(n: nat)
+    requires n >= 2,
+    ensures
+        partial_sum(geo_summands(credit_above_one()), n) + pow(0.5real, n) <= 0.25real,
+    decreases n,
+{
+    let e = credit_above_one();
+    let s = geo_summands(e);
+    if n == 2 {
+        lemma_zero_term(e, 0nat);
+        lemma_zero_term(e, 1nat);
+        assert(partial_sum(s, 1nat) == partial_sum(s, 0nat) + s(0nat));
+        assert(partial_sum(s, 2nat) == partial_sum(s, 1nat) + s(1nat));
+        lemma_pow_half_small();
+    } else {
+        lemma_tail_bound_tight((n - 1) as nat);
+        let k = (n - 1) as nat;
+        assert(partial_sum(s, n) + pow(0.5real, n) == partial_sum(s, k) + pow(0.5real, k))
+            by(nonlinear_arith)
+            requires
+                partial_sum(s, n) == partial_sum(s, k) + s(k),
+                s(k) == pow(0.5real, k + 1) * 1real,
+                pow(0.5real, k + 1) == 0.5real * pow(0.5real, k),
+                pow(0.5real, n) == 0.5real * pow(0.5real, k);
+    }
+}
 
 } // verus!
