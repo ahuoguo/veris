@@ -17,7 +17,7 @@ use vstd::prelude::*;
 use vstd::calc_macro::*;
 use crate::ub::*;
 use crate::rand_primitives::{rand_u64, rand_1_u64, thin_air, average, sum_credit};
-use crate::pure_fact::{pow, pure_fact_with_base};
+use crate::math::exp::{pow, archimedean_exp_growth};
 
 verus! {
 
@@ -191,7 +191,7 @@ pub fn rejection_sampler<S: SamplingScheme>(
 
     proof {
         epsilon = choose |i: real| e.view().value() == Some(i);
-        crate::pure_fact::pure_fact_with_base(epsilon, amp);
+        crate::math::exp::archimedean_exp_growth(epsilon, amp);
         assert(exists |k: nat| epsilon * pow(amp, k) >= 1real);
         hi = choose |k: nat| epsilon * pow(amp, k) >= 1real;
     }
@@ -383,8 +383,19 @@ impl SamplingScheme for UniformThresholdScheme {
         let ghost credit_alloc = threshold_credit_alloc(self.bound, self.threshold, eps);
 
         proof {
-            // valid() ensures threshold < bound, which gives us preconditions for lemma_average_bound
             lemma_average_bound(self.bound, self.threshold, eps);
+            assert forall |i: nat| (#[trigger] credit_alloc(i as real)) >= 0real by {
+                if (i as real) < self.threshold as real {
+                } else {
+                    assert(credit_alloc(i as real) == (self.bound as real / (self.bound - self.threshold) as real) * eps);
+                    assert(credit_alloc(i as real) >= 0real) by(nonlinear_arith)
+                        requires
+                            eps > 0real,
+                            self.bound as real > 0real,
+                            (self.bound - self.threshold) as real > 0real,
+                            credit_alloc(i as real) == (self.bound as real / (self.bound - self.threshold) as real) * eps;
+                }
+            };
         }
 
         let (val, Tracked(outcome_credit)) = rand_u64(self.bound, Tracked(input_credit), Ghost(credit_alloc));
@@ -579,6 +590,7 @@ pub fn bounded_rejection_exp_preserving(
         scheme.threshold > 0,
         eps > 0real,
         eps_avg >= 0real,
+        forall |v: u64| (#[trigger] e(v)) >= 0real,
         input_credit.view() =~= (ErrorCreditCarrier::Value { car: eps + eps_avg }),
         eps * pow(scheme.amp(), depth) >= 1real,
         eps_avg >= average(scheme.threshold, |v: real| e(v.floor() as u64)),
@@ -599,6 +611,14 @@ pub fn bounded_rejection_exp_preserving(
             ec_contradict(&input_credit);
         }
         lemma_mixed_alloc_average(scheme.bound, scheme.threshold, amp, e, eps, eps_avg);
+        assert forall |i: nat| (#[trigger] credit_alloc(i as real)) >= 0real by {
+            if (i as real) < scheme.threshold as real {
+                // unfolds to e((i as real).floor() as u64) >= 0
+            } else {
+                assert(amp * eps + eps_avg >= 0real) by(nonlinear_arith)
+                    requires amp > 1real, eps > 0real, eps_avg >= 0real;
+            }
+        };
     }
 
     let (val, Tracked(outcome_credit)) = rand_u64(
@@ -656,6 +676,7 @@ pub fn unbounded_rejection_exp_preserving(
         scheme.amp() > 1real,
         scheme.threshold > 0,
         eps_avg >= 0real,
+        forall |v: u64| (#[trigger] e(v)) >= 0real,
         input_credit.view() =~= (ErrorCreditCarrier::Value { car: eps_avg }),
         eps_avg >= average(scheme.threshold, |v: real| e(v.floor() as u64)),
     ensures
@@ -670,13 +691,13 @@ pub fn unbounded_rejection_exp_preserving(
 
     proof {
         eps = choose |v: real| v > 0real && (ErrorCreditCarrier::Value { car: v } =~= eps_credit.view());
-        pure_fact_with_base(eps, amp);
+        archimedean_exp_growth(eps, amp);
         depth = choose |k: nat| eps * pow(amp, k) >= 1real;
     }
 
     let tracked combined: ErrorCreditResource;
     proof {
-        combined = join_credits(input_credit, eps_credit, eps_avg, eps);
+        combined = ec_combine(input_credit, eps_credit, eps_avg, eps);
     }
 
     bounded_rejection_exp_preserving(

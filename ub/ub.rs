@@ -4,6 +4,7 @@ use vstd::prelude::*;
 verus! {
 
 // Ghost name for the single global error-credit resource location.
+#[allow(non_snake_case)]
 pub uninterp spec fn EC_GLOBAL_LOC() -> int;
 
 // wrapper around ec, namely `↯`
@@ -122,7 +123,7 @@ pub proof fn ec_contradict(tracked e: &ErrorCreditResource)
 }
 
 /// Combine two error credits into one with summed value.
-pub proof fn join_credits(
+pub proof fn ec_combine(
     tracked c1: ErrorCreditResource,
     tracked c2: ErrorCreditResource,
     v1: real,
@@ -142,6 +143,7 @@ pub proof fn join_credits(
     ErrorCreditResource { r: joined }
 }
 
+// TODO: add ec_split when needed
 
 } // verus!
 

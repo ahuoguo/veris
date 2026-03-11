@@ -1,3 +1,5 @@
+// TODO: might remove this file, since it only reasons about termination...
+// but maybe also a nice intro to using error credits for AST?
 // Geometric Distribution Sampler
 // Samples from a geometric distribution by repeatedly flipping a fair coin.
 // Each flip either terminates (outcome 0) or recurses with doubled error credit (outcome 1).
@@ -12,7 +14,7 @@ verus! {
 
 use crate::ub::*;
 use crate::rand_primitives::{rand_1_u64, thin_air};
-use crate::pure_fact::{pow, pure_fact_with_base};
+use crate::math::exp::{pow, archimedean_exp_growth};
 
 spec fn geo_credit_alloc(outcome: real, eps: real) -> real {
     if outcome == 0real { 0real } else { 2real * eps }
@@ -34,7 +36,7 @@ pub fn geometric() -> (ret: u64)
 
     proof {
         eps = choose |v: real| input_credit.view().value() == Some(v);
-        pure_fact_with_base(eps, 2real);
+        archimedean_exp_growth(eps, 2real);
         depth = choose |k: nat| eps * pow(2real, k) >= 1real;
     }
 
