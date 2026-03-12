@@ -247,7 +247,7 @@ proof fn lemma_zero_term(s: spec_fn(nat) -> real, k: nat)
         requires geo_summands(s)(k) == pow(0.5real, k + 1) * 0real;
 }
 
-/// S_n + (1/2)^n ≤ 0.5 for n ≥ 1; implies 0.5 ≥ S_n for all n.
+/// 0 + 1/4 + 1/8 + ... ≤ 0.5 (term 0 is zero, rest are (1/2)^(i+1)).
 proof fn lemma_must_zero_bound(n: nat)
     ensures
         0.5real >= partial_sum(geo_summands(credit_nonzero()), n),
@@ -326,7 +326,7 @@ pub fn example_geo_tail_bound(
     v
 }
 
-/// S_n + (1/2)^n ≤ 0.25 for n ≥ 2; implies 0.25 ≥ S_n for all n.
+/// 0 + 0 + 1/8 + 1/16 + ... ≤ 0.25 (terms 0,1 are zero, rest are (1/2)^(i+1)).
 proof fn lemma_tail_bound(n: nat)
     ensures
         0.25real >= partial_sum(geo_summands(credit_above_one()), n),
