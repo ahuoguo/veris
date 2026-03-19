@@ -14,7 +14,7 @@ verus! {
 
 use crate::ub::*;
 use crate::rand_primitives::{rand_1_u64, thin_air};
-use crate::math::exp::{pow, archimedean_exp_growth};
+use crate::math::pow::{pow, archimedean_exp_growth};
 
 spec fn geo_credit_alloc(outcome: real, eps: real) -> real {
     if outcome == 0real { 0real } else { 2real * eps }
