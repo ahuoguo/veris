@@ -17,7 +17,7 @@ use vstd::prelude::*;
 use vstd::calc_macro::*;
 use crate::ub::*;
 use crate::rand_primitives::{rand_u64, rand_1_u64, thin_air, average, sum_credit};
-use crate::math::exp::{pow, archimedean_exp_growth};
+use crate::math::pow::{pow, archimedean_exp_growth};
 
 verus! {
 
@@ -191,7 +191,7 @@ pub fn rejection_sampler<S: SamplingScheme>(
 
     proof {
         epsilon = choose |i: real| e.view().value() == Some(i);
-        crate::math::exp::archimedean_exp_growth(epsilon, amp);
+        crate::math::pow::archimedean_exp_growth(epsilon, amp);
         assert(exists |k: nat| epsilon * pow(amp, k) >= 1real);
         hi = choose |k: nat| epsilon * pow(amp, k) >= 1real;
     }

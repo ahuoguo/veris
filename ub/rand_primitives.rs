@@ -5,7 +5,7 @@ use vstd::prelude::*;
 verus! {
 
 use crate::ub::*;
-use crate::math::exp::pow;
+use crate::math::pow::pow;
 
 /// Recursive sum of credit_alloc over [0, n)
 /// credit_alloc(i) is the error credit allocated to outcome i

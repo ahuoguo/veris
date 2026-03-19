@@ -7,7 +7,7 @@ use vstd::prelude::*;
 
 verus! {
 
-use crate::math::exp::pow;
+use crate::math::pow::pow;
 
 // ============================================================================
 // Real arithmetic helpers
