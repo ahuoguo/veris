@@ -15,7 +15,7 @@
 
 use vstd::prelude::*;
 
-use random::UBig;
+use random::{UBig, ubig_from_u64};
 
 verus! {
 
@@ -80,9 +80,11 @@ pub fn sample_discrete_laplace(
         // Step 1: flip sign (true = positive)
         let Tracked(sign_credit) = thin_air();
         proof { assume(false); }
+        let one = ubig_from_u64(1u64);
+        let two = ubig_from_u64(2u64);
         let (positive, _) = sample_bernoulli_rational(
-            1u64,
-            2u64,
+            &one,
+            &two,
             Ghost(|_b: bool| 0real),
             Tracked(sign_credit),
             Ghost(1real),

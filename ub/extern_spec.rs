@@ -5,7 +5,7 @@
 
 use vstd::prelude::*;
 
-use random::{UBig, ubig_zero, ubig_succ, ubig_add, ubig_mul, ubig_mul_u64, ubig_from_u64, ubig_is_odd};
+use random::{UBig, ubig_zero, ubig_succ, ubig_pred, ubig_is_zero, ubig_add, ubig_mul, ubig_mul_u64, ubig_from_u64, ubig_is_odd};
 
 verus! {
 
@@ -22,6 +22,16 @@ pub assume_specification[ random::ubig_zero ]() -> (ret: UBig)
 pub assume_specification[ random::ubig_succ ](n: UBig) -> (ret: UBig)
     ensures ubig_view(&ret) == ubig_view(&n) + 1;
 
+pub assume_specification[ <UBig as Clone>::clone ](n: &UBig) -> (ret: UBig)
+    ensures ubig_view(&ret) == ubig_view(n);
+
+pub assume_specification[ random::ubig_pred ](n: UBig) -> (ret: UBig)
+    requires ubig_view(&n) > 0,
+    ensures ubig_view(&ret) == ubig_view(&n) - 1;
+
+pub assume_specification[ random::ubig_is_zero ](n: &UBig) -> (ret: bool)
+    ensures ret == (ubig_view(n) == 0);
+
 pub assume_specification[ random::ubig_add ](a: UBig, b: UBig) -> (ret: UBig)
     ensures ubig_view(&ret) == ubig_view(&a) + ubig_view(&b);
 
@@ -36,6 +46,13 @@ pub assume_specification[ random::ubig_from_u64 ](n: u64) -> (ret: UBig)
 
 pub assume_specification[ random::ubig_is_odd ](n: &UBig) -> (ret: bool)
     ensures ret == (ubig_view(n) % 2 == 1);
+
+#[verifier::external_body]
+pub fn ubig_lt(a: &UBig, b: &UBig) -> (ret: bool)
+    ensures ret == (ubig_view(a) < ubig_view(b)),
+{
+    a < b
+}
 
 #[verifier::external_body]
 pub fn ubig_to_i64(n: &UBig) -> (ret: i64)

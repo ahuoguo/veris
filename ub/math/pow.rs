@@ -133,7 +133,7 @@ proof fn lemma_bernoulli_step(r: real, prev: nat, delta: real)
 // Archimedean properties
 // ============================================================================
 // For any x >= 0, there exists a natural number n >= x
-proof fn archimedean_nat(x: real)
+pub proof fn archimedean_nat(x: real)
     requires
         x >= 0real,
     ensures

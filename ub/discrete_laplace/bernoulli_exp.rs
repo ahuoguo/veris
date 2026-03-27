@@ -58,7 +58,6 @@ pub fn sample_bernoulli_exp(
             denom_x,    // numer = denom means x = 1
             denom_x,
             Ghost(|_b: bool| 0real),
-            Ghost(0real),
             Tracked(flip_credit),
             Ghost(1real),
         );
@@ -78,7 +77,6 @@ pub fn sample_bernoulli_exp(
         remaining_numer,
         denom_x,
         Ghost(|_b: bool| 0real),
-        Ghost(0real),
         Tracked(frac_credit),
         Ghost(1real),
     );
