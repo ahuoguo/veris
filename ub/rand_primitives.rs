@@ -2,10 +2,13 @@ use vstd::calc_macro::*;
 use vstd::pcm::*;
 use vstd::prelude::*;
 
+use random::UBig;
+
 verus! {
 
 use crate::ub::*;
-use crate::math::exp::pow;
+use crate::math::pow::pow;
+use crate::extern_spec::{ExUBig, ubig_view};
 
 /// Recursive sum of credit_alloc over [0, n)
 /// credit_alloc(i) is the error credit allocated to outcome i
@@ -21,6 +24,11 @@ pub open spec fn sum_credit(credit_alloc: spec_fn(real) -> real, n: nat) -> real
 /// This is the expected error credit when sampling uniformly from [0, bound)
 pub open spec fn average(bound: u64, credit_alloc: spec_fn(real) -> real) -> real {
     sum_credit(credit_alloc, bound as nat) / bound as real
+}
+
+/// Average over [0, bound) with nat bound.
+pub open spec fn average_nat(bound: nat, credit_alloc: spec_fn(real) -> real) -> real {
+    sum_credit(credit_alloc, bound) / bound as real
 }
 
 //// Wrappers
@@ -50,6 +58,28 @@ pub fn rand_u64(
     (val, Tracked::assume_new())
 }
 
+/// Uniform sampler with UBig bound: sample u ~ Uniform([0, bound)).
+/// See opendp: `sample_uniform_ubig_below` in opendp/rust/src/traits/samplers/uniform/mod.rs.
+#[verus::trusted]
+#[verifier::external_body]
+pub fn rand_ubig(
+    bound: &UBig,
+    Tracked(e1): Tracked<ErrorCreditResource>,
+    Ghost(e2): Ghost<spec_fn(real) -> real>,
+) -> (ret: (UBig, Tracked<ErrorCreditResource>))
+    requires
+        ubig_view(bound) > 0,
+        forall |i: nat| (#[trigger] e2(i as real)) >= 0real,
+        exists |eps: real| (ErrorCreditCarrier::Value { car: eps } =~= e1.view())
+            && eps >= average_nat(ubig_view(bound), e2),
+    ensures
+        ubig_view(&ret.0) < ubig_view(bound),
+        (ErrorCreditCarrier::Value { car: e2(ubig_view(&ret.0) as real) }) =~= ret.1.view().view(),
+{
+    let val = random::rand_ubig(bound.clone());
+    (val, Tracked::assume_new())
+}
+
 // REVIEW:
 // In Eris, you can only invoke a thin air rule if your postcondition is a WP or is wrapped in some modality
 // you can't not invoke thin air rule in any lemma (this might(?) be unsound)
@@ -62,6 +92,7 @@ pub fn thin_air() -> (ret: Tracked<ErrorCreditResource>)
 {
     Tracked::assume_new()
 }
+
 
 pub open spec fn flip_credit_alloc(x: real) -> real {
     if x == 1real {

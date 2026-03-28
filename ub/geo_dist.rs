@@ -27,28 +27,9 @@ verus! {
 
 use crate::ub::*;
 use crate::rand_primitives::{rand_1_u64, thin_air};
-use crate::math::exp::{pow, archimedean_exp_growth};
+use crate::math::pow::{pow, archimedean_exp_growth};
 use crate::math::series::*;
-
-// ============================================================================
-// UBig: dashu unbounded naturals with assumed specifications
-// ============================================================================
-
-#[verifier::external_type_specification]
-#[verifier::external_body]
-pub struct ExUBig(UBig);
-
-/// Ghost interpretation of a UBig as a nat.
-pub uninterp spec fn ubig_view(n: &UBig) -> nat;
-
-pub assume_specification[ random::ubig_zero ]() -> (ret: UBig)
-    ensures ubig_view(&ret) == 0nat;
-
-pub assume_specification[ random::ubig_succ ](n: UBig) -> (ret: UBig)
-    ensures ubig_view(&ret) == ubig_view(&n) + 1;
-
-pub assume_specification[ random::ubig_add ](a: UBig, b: UBig) -> (ret: UBig)
-    ensures ubig_view(&ret) == ubig_view(&a) + ubig_view(&b);
+use crate::extern_spec::{ExUBig, ubig_view};
 
 /// Credit allocation: outcome 0 → ℰ(0), outcome 1 → 2ε - ℰ(0).
 spec fn geo_dist_credit_alloc(e: spec_fn(nat) -> real, eps: real) -> spec_fn(real) -> real {
