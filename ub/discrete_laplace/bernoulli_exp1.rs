@@ -52,6 +52,8 @@ pub open spec fn exp1_flip_e(e: spec_fn(bool) -> real, k: nat, new_eps: real) ->
 }
 
 /// Next conditional probability: p_k = (x/k)·p_{k+1} + (1-x/k)·[k%2==1].
+/// - With prob x/k, we continue to step k+1, where the conditional probability of returning true is p_{k+1}
+///  - With prob (1-x)/k, we return [k is odd]
 pub open spec fn exp1_next_p(numer_x: u64, denom_x: u64, k: nat, p_k: real) -> real {
     let amp = exp1_amp(numer_x, denom_x, k);
     if k % 2 == 1 { (p_k - 1real) * amp + 1real }
