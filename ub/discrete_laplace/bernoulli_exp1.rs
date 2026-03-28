@@ -212,7 +212,7 @@ proof fn lemma_scale_term_product(x: real, k: nat)
     }
 }
 
-/// The CKS20 conditional probability at step k, expressed via Taylor remainder.
+/// Solution to the recurrence for p_k (proven in `lemma_exp1_p_formula_step`)
 ///   p_k = [k odd] + (k-1)! / x^{k-1} · (exp(-x) - T_k(x))
 pub open spec fn exp1_p_formula(x: real, k: nat) -> real {
     if k == 0 { 0real }
@@ -346,8 +346,7 @@ proof fn lemma_exp1_p_formula_step(numer_x: u64, denom_x: u64, k: nat, x: real)
 proof fn lemma_exp1_p_formula_range(x: real, k: nat)
     requires 0real < x <= 1real, k >= 1,
     ensures
-        0real <= exp1_p_formula(x, k),
-        exp1_p_formula(x, k) <= 1real,
+        0real <= exp1_p_formula(x, k) <= 1real,
 {
     let seq = exp_taylor_seq(x);
     let t_k = partial_sum(seq, k);
