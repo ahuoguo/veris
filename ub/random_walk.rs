@@ -235,7 +235,7 @@ pub proof fn rw_ast(pos: nat, delta: real)
     lemma_convergent_witness(fail_prob_seq(pos), 0real, delta);
 }
 
-/// Credit allocation: fail_prob(steps-1, pos∓1) for each coin outcome.
+/// Credit allocation: fail_prob(steps-1, pos(-/+)1) for each coin outcome.
 spec fn rw_credit_alloc(outcome: real, steps: nat, pos: nat) -> real {
     if outcome == 0real {
         fail_prob((steps - 1) as nat, (pos - 1) as nat)
