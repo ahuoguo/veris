@@ -1,7 +1,15 @@
 // 1D Symmetric Random Walk - Almost Sure Termination
+// Solves by having the credit allocation as the failure probability, 
+// namely: fail_prob(steps, pos) = 1 - Pr[walk from pos reaches 0 in ≤ steps]
 //
-// rw_ast: for any delta > 0 and position p, there exists s such that
-// fail_prob(s, p) < delta.
+// fail_prob(0, p) = 1
+// fail_prob(s, 0) = 0
+// fail_prob(s, p) = (fail_prob(s-1, p-1) fail_prob(s-1, p+1)) / 2
+//
+// Then the credit allocation is just the last case of the recurrence relation.
+//
+// The rest of the heavy lifting is proving the Archimedean property: 
+// ∀ δ > 0, ∀ p, ∃ s, fail_prob(s, p) < δ
 //
 // Proof of rw_ast (fail_limit(p) := lim_{s→∞} fail_prob(s, p)):
 //   1. fail_prob(s, p) is non-increasing in s and bounded below by 0,
