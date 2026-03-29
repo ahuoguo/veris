@@ -246,7 +246,7 @@ proof fn lemma_exp1_p_formula_base(x: real)
 }
 
 /// exp1_next_p preserves the formula: next_p(k, formula(k)) == formula(k+1).
-/// Key identity: R_{k+1} = R_k - (-x)^k/k! (partial sum telescoping).
+/// Key identity: R_{k+1} = R_k - (-x)^k/k! (partial sum step).
 proof fn lemma_exp1_p_formula_step(numer_x: u64, denom_x: u64, k: nat, x: real)
     requires
         numer_x > 0, denom_x > 0, numer_x <= denom_x, k >= 1,
@@ -266,7 +266,7 @@ proof fn lemma_exp1_p_formula_step(numer_x: u64, denom_x: u64, k: nat, x: real)
     let p_k = exp1_p_formula(x, k);
     let term_k = exp_taylor_term(x, k);
 
-    // Telescoping: R_{k+1} = R_k - term_k
+    // Partial sum step: T_{k+1} = T_k + term_k, so R_{k+1} = R_k - term_k
     assert(t_k1 == t_k + seq(k));
     assert(seq(k) == term_k);
     assert(r_k1 == r_k - term_k);
