@@ -20,7 +20,6 @@ use vstd::calc_macro::*;
 verus! {
 
 use crate::ub::*;
-use crate::rand_primitives::thin_air;
 use crate::discrete_laplace::bernoulli_rational::{bernoulli_weighted_sum, lemma_bws_nonneg};
 use crate::discrete_laplace::bernoulli_exp1::sample_bernoulli_exp1;
 use crate::math::exp::{exp, axiom_exp_neg_range, lemma_exp_decompose, axiom_exp_zero};
@@ -110,7 +109,7 @@ pub fn sample_bernoulli_exp(
         0real <= exp(-(numer_x as real / denom_x as real)) <= 1real,
         e(true) >= 0real,
         e(false) >= 0real,
-        eps > 0real,
+        eps >= 0real,
         input_credit.view() =~= (ErrorCreditCarrier::Value { car: eps }),
         eps >= bernoulli_weighted_sum(exp(-(numer_x as real / denom_x as real)), e),
     ensures
@@ -169,23 +168,13 @@ pub fn sample_bernoulli_exp(
             assert(g_eps >= bernoulli_weighted_sum(p1, flip_e));
         }
 
-        // Ensure eps > 0 for sample_bernoulli_exp1 by adding thin_air if needed
-        let Tracked(extra) = thin_air();
-        let ghost extra_val: real;
-        proof {
-            extra_val = choose |v: real| v > 0real &&
-                (ErrorCreditCarrier::Value { car: v } =~= extra.view());
-        }
-        let tracked boosted = ec_combine(credit, extra, g_eps, extra_val);
-        let ghost boosted_eps = g_eps + extra_val;
-
         // Flip Bernoulli(exp(-1)) using sample_bernoulli_exp1(denom_x, denom_x)
         let (heads, Tracked(out_credit)) = sample_bernoulli_exp1(
             denom_x,
             denom_x,
             Ghost(flip_e),
-            Tracked(boosted),
-            Ghost(boosted_eps),
+            Tracked(credit),
+            Ghost(g_eps),
         );
 
         if !heads {
@@ -228,22 +217,14 @@ pub fn sample_bernoulli_exp(
     }
 
     // 0 < remaining_numer <= denom_x, so frac ∈ (0, 1].
-    // Boost credit to ensure eps > 0 for sample_bernoulli_exp1.
     proof { lemma_bws_nonneg(g_prob, e); } // g_eps >= bws(g_prob, e) >= 0
-    let Tracked(extra) = thin_air();
-    let ghost extra_val: real;
-    proof {
-        extra_val = choose |v: real| v > 0real &&
-            (ErrorCreditCarrier::Value { car: v } =~= extra.view());
-    }
-    let tracked boosted = ec_combine(credit, extra, g_eps, extra_val);
 
     sample_bernoulli_exp1(
         remaining_numer,
         denom_x,
         Ghost(e),
-        Tracked(boosted),
-        Ghost(g_eps + extra_val),
+        Tracked(credit),
+        Ghost(g_eps),
     )
 }
 

@@ -604,7 +604,7 @@ pub fn sample_bernoulli_exp1(
         numer_x <= denom_x,
         e(true) >= 0real,
         e(false) >= 0real,
-        eps > 0real,
+        eps >= 0real,
         input_credit.view() =~= (ErrorCreditCarrier::Value { car: eps }),
         eps >= bernoulli_weighted_sum(exp(-(numer_x as real / denom_x as real)), e),
     ensures
