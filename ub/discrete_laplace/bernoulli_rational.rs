@@ -3,7 +3,7 @@
 // Implemented via: sample u ~ Uniform([0, denom)), return (numer > u).
 // This gives P[true] = numer/denom = p exactly.
 //
-// Distribution credit specification:
+// We prove the following Expectation Preservation Rule
 //
 //   ε ≥ p · ℰ(true) + (1 - p) · ℰ(false)
 //   ----------------------------------------
