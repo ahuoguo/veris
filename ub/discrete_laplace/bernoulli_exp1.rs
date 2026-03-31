@@ -3,7 +3,7 @@
 //   Loop k = 1, 2, ...: flip Bernoulli(x/k).
 //     Heads → increment k.  Tails → return (k is odd).
 //
-// Distribution credit specification:
+// We prove the following Expectation Preservation Rule
 //
 //   ε ≥ exp(-x) · ℰ(true) + (1 - exp(-x)) · ℰ(false)
 //   ---------------------------------------------------
@@ -29,7 +29,7 @@ use crate::math::pow::{pow, archimedean_exp_growth};
 use crate::math::series::{lemma_pow_nonneg, partial_sum};
 use crate::math::exp::{exp, factorial, exp_taylor_term, exp_taylor_seq, axiom_exp_taylor_bounds};
 use crate::extern_spec::{ExUBig, ubig_view};
-use crate::discrete_laplace::bernoulli_rational::{bernoulli_weighted_sum, sample_bernoulli_rational};
+use crate::discrete_laplace::bernoulli_rational::{bernoulli_weighted_sum, lemma_bws_nonneg, sample_bernoulli_rational};
 
 // ============================================================================
 // Spec functions (all use nat for step k)
@@ -745,13 +745,8 @@ pub fn sample_bernoulli_exp1(
                     new_eps == amp * (g_dist_eps + g_slack_val) - (amp - 1real) * e(kn % 2 == 1),
                     new_dist_eps == amp * g_dist_eps - (amp - 1real) * e(kn % 2 == 1),
                     new_slack_val == amp * g_slack_val;
-            // new_dist_eps >= 0 (from shift_bound + bws >= 0)
-            assert(new_dist_eps >= 0real) by(nonlinear_arith)
-                requires
-                    new_dist_eps >= bernoulli_weighted_sum(p_next, e),
-                    0real <= exp1_p_formula(x, kn + 1) <= 1real,
-                    p_next == exp1_p_formula(x, kn + 1),
-                    e(true) >= 0real, e(false) >= 0real;
+            // new_dist_eps >= bws(p_next, e) >= 0
+            lemma_bws_nonneg(p_next, e);
             assert(new_slack_val > 0real) by(nonlinear_arith)
                 requires new_slack_val == amp * g_slack_val, amp >= 1real, g_slack_val > 0real;
             real_assoc_mult(g_slack_val, amp, slack_product(numer_x, denom_x, kn + 1, (g_depth - 1) as nat));

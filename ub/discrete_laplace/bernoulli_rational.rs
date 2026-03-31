@@ -29,6 +29,16 @@ pub open spec fn bernoulli_weighted_sum(
     prob * e(true) + (1real - prob) * e(false)
 }
 
+/// bws(prob, e) >= 0 when prob ∈ [0, 1] and e >= 0.
+pub proof fn lemma_bws_nonneg(prob: real, e: spec_fn(bool) -> real)
+    requires 0real <= prob <= 1real, e(true) >= 0real, e(false) >= 0real,
+    ensures bernoulli_weighted_sum(prob, e) >= 0real,
+{
+    assert(bernoulli_weighted_sum(prob, e) >= 0real) by(nonlinear_arith)
+        requires 0real <= prob <= 1real, e(true) >= 0real, e(false) >= 0real,
+            bernoulli_weighted_sum(prob, e) == prob * e(true) + (1real - prob) * e(false);
+}
+
 /// Credit allocation for the uniform sampler underlying Bernoulli(numer/denom):
 ///   outcome i < numer  → e(true)   (accepted: return true)
 ///   outcome i ≥ numer  → e(false)  (rejected: return false)

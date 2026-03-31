@@ -8,81 +8,243 @@
 // Since exp(-x) = exp(-1)^floor(x) · exp(-frac(x)), the output
 // is Bernoulli(exp(-x)).
 //
-// Distribution credit specification (same form as bernoulli_exp1):
+// We prove the following Expectation Preservation Rule
 //
 //   ε ≥ exp(-x) · ℰ(true) + (1 - exp(-x)) · ℰ(false)
 //   ---------------------------------------------------
 //   [{ ↯(ε) }] sample_bernoulli_exp(x) [{ v. ↯(ℰ(v)) }]
 
 use vstd::prelude::*;
+use vstd::calc_macro::*;
 
 verus! {
 
 use crate::ub::*;
 use crate::rand_primitives::thin_air;
-use crate::discrete_laplace::bernoulli_rational::bernoulli_weighted_sum;
+use crate::discrete_laplace::bernoulli_rational::{bernoulli_weighted_sum, lemma_bws_nonneg};
 use crate::discrete_laplace::bernoulli_exp1::sample_bernoulli_exp1;
+use crate::math::exp::{exp, axiom_exp_neg_range, lemma_exp_decompose, axiom_exp_zero};
+
+/// Credit allocation for the Bernoulli(exp(-1)) flip at each iteration.
+/// heads: continue with bws(prob_remaining, e)
+/// tails: e(false)
+pub open spec fn exp_flip_e(
+    prob_remaining: real,
+    e: spec_fn(bool) -> real,
+) -> spec_fn(bool) -> real {
+    |b: bool| if b { bernoulli_weighted_sum(prob_remaining, e) } else { e(false) }
+}
+
+/// The Bernoulli(exp(-1)) flip average exactly consumes eps.
+/// exp(-1) · bws(prob_rem, e) + (1-exp(-1)) · e(false) == bws(exp(-1)·prob_rem, e)
+proof fn lemma_exp_flip_average(
+    prob_remaining: real,
+    e: spec_fn(bool) -> real,
+)
+    ensures ({
+        let p1 = exp(-1real);
+        let flip_e = exp_flip_e(prob_remaining, e);
+        bernoulli_weighted_sum(p1, flip_e) == bernoulli_weighted_sum(p1 * prob_remaining, e)
+    }),
+{
+    let p1 = exp(-1real);
+    let flip_e = exp_flip_e(prob_remaining, e);
+    let et = e(true);
+    let ef = e(false);
+    let pr = prob_remaining;
+
+    // Unfold spec fns
+    assert(flip_e(true) == pr * et + (1real - pr) * ef);
+    assert(flip_e(false) == ef);
+
+    // Unfold bws on both sides
+    assert(bernoulli_weighted_sum(p1, flip_e)
+        == p1 * flip_e(true) + (1real - p1) * flip_e(false));
+    assert(bernoulli_weighted_sum(p1 * pr, e)
+        == (p1 * pr) * et + (1real - p1 * pr) * ef);
+
+    // Walk through the algebra step by step
+    calc! {
+        (==)
+        bernoulli_weighted_sum(p1, flip_e); {}
+        p1 * flip_e(true) + (1real - p1) * flip_e(false); {}
+        p1 * (pr * et + (1real - pr) * ef) + (1real - p1) * ef; {
+            // distribute p1 into the sum
+            assert(p1 * (pr * et + (1real - pr) * ef)
+                == p1 * pr * et + p1 * (1real - pr) * ef)
+                by(nonlinear_arith);
+        }
+        p1 * pr * et + p1 * (1real - pr) * ef + (1real - p1) * ef; {
+            // combine the ef terms: p1·(1-pr)·ef + (1-p1)·ef = (1 - p1·pr)·ef
+            assert(p1 * (1real - pr) * ef + (1real - p1) * ef
+                == (1real - p1 * pr) * ef)
+                by(nonlinear_arith);
+        }
+        p1 * pr * et + (1real - p1 * pr) * ef; {
+            // associativity: p1*pr*et == (p1*pr)*et
+            assert(p1 * pr * et == (p1 * pr) * et)
+                by(nonlinear_arith);
+        }
+        (p1 * pr) * et + (1real - p1 * pr) * ef; {}
+        bernoulli_weighted_sum(p1 * pr, e);
+    }
+}
+
+// ============================================================================
+// Sampler
+// ============================================================================
 
 /// Sample from Bernoulli(exp(-x)) where x = numer_x/denom_x ≥ 0.
 ///
 /// While x > 1: flip Bernoulli(exp(-1)). If false, return false. Else x -= 1.
-/// Then flip Bernoulli(exp(-frac(x))).
-#[verifier::exec_allows_no_decreases_clause]
+/// Then flip Bernoulli(exp(-frac(x))) via sample_bernoulli_exp1.
 pub fn sample_bernoulli_exp(
     numer_x: u64,
     denom_x: u64,
     Ghost(e): Ghost<spec_fn(bool) -> real>,
-    Ghost(prob_true): Ghost<real>,
     Tracked(input_credit): Tracked<ErrorCreditResource>,
     Ghost(eps): Ghost<real>,
 ) -> (ret: (bool, Tracked<ErrorCreditResource>))
     requires
         denom_x > 0,
-        0real <= prob_true <= 1real,
+        0real <= exp(-(numer_x as real / denom_x as real)) <= 1real,
         e(true) >= 0real,
         e(false) >= 0real,
         eps > 0real,
         input_credit.view() =~= (ErrorCreditCarrier::Value { car: eps }),
-        eps >= bernoulli_weighted_sum(prob_true, e),
+        eps >= bernoulli_weighted_sum(exp(-(numer_x as real / denom_x as real)), e),
     ensures
         ret.1@.view() =~= (ErrorCreditCarrier::Value { car: e(ret.0) }),
 {
     let mut remaining_numer = numer_x;
+    let ghost mut g_prob = exp(-(numer_x as real / denom_x as real));
+    let ghost mut g_eps = eps;
+    let tracked mut credit = input_credit;
 
-    // While x > 1 (i.e. remaining_numer > denom_x), sample Bernoulli(exp(-1))
-    while remaining_numer > denom_x {
-        let Tracked(flip_credit) = thin_air();
-        proof { assume(false); }
+    // While x > 1: flip Bernoulli(exp(-1)). If false, return false.
+    while remaining_numer > denom_x
+        invariant
+            denom_x > 0,
+            e(true) >= 0real,
+            e(false) >= 0real,
+            remaining_numer <= numer_x,
+            g_prob == exp(-(remaining_numer as real / denom_x as real)),
+            0real <= g_prob <= 1real,
+            credit.view() =~= (ErrorCreditCarrier::Value { car: g_eps }),
+            g_eps >= bernoulli_weighted_sum(g_prob, e),
+        decreases remaining_numer as int,
+    {
+        let ghost p1 = exp(-1real);
+        let ghost prob_remaining = exp(-((remaining_numer - denom_x) as real / denom_x as real));
 
-        let (heads, _out) = sample_bernoulli_exp1(
-            denom_x,    // numer = denom means x = 1
+        let ghost flip_e = exp_flip_e(prob_remaining, e);
+
+        proof {
+            // exp(-x) = exp(-1) · exp(-(x-1))
+            lemma_exp_decompose(remaining_numer, denom_x);
+            // So g_prob == p1 · prob_remaining
+
+            // exp(-1) ∈ (0, 1]
+            axiom_exp_neg_range(1real);
+            // prob_remaining ∈ (0, 1]
+            assert((remaining_numer - denom_x) as real / denom_x as real >= 0real)
+                by(nonlinear_arith)
+                requires remaining_numer > denom_x, denom_x > 0u64;
+            axiom_exp_neg_range((remaining_numer - denom_x) as real / denom_x as real);
+
+            // The flip average identity
+            lemma_exp_flip_average(prob_remaining, e);
+            // bws(p1, flip_e) == bws(g_prob, e) <= g_eps
+
+            // g_eps >= bws(g_prob, e) >= 0
+            lemma_bws_nonneg(g_prob, e);
+            // bws(prob_remaining, e) >= 0  (needed for flip_e(true) >= 0)
+            lemma_bws_nonneg(prob_remaining, e);
+
+            // denom_x / denom_x == 1
+            assert(denom_x as real / denom_x as real == 1real) by(nonlinear_arith)
+                requires denom_x > 0u64;
+            // So exp(-(denom_x/denom_x)) == exp(-1) == p1
+            // boosted_eps >= g_eps >= bws(p1, flip_e)
+            assert(g_eps >= bernoulli_weighted_sum(p1, flip_e));
+        }
+
+        // Ensure eps > 0 for sample_bernoulli_exp1 by adding thin_air if needed
+        let Tracked(extra) = thin_air();
+        let ghost extra_val: real;
+        proof {
+            extra_val = choose |v: real| v > 0real &&
+                (ErrorCreditCarrier::Value { car: v } =~= extra.view());
+        }
+        let tracked boosted = ec_combine(credit, extra, g_eps, extra_val);
+        let ghost boosted_eps = g_eps + extra_val;
+
+        // Flip Bernoulli(exp(-1)) using sample_bernoulli_exp1(denom_x, denom_x)
+        let (heads, Tracked(out_credit)) = sample_bernoulli_exp1(
             denom_x,
-            Ghost(|_b: bool| 0real),
-            Tracked(flip_credit),
-            Ghost(1real),
+            denom_x,
+            Ghost(flip_e),
+            Tracked(boosted),
+            Ghost(boosted_eps),
         );
 
         if !heads {
-            proof { assume(false); }
-            return (false, Tracked(input_credit));
+            // Tails: return false. out_credit has value flip_e(false) = e(false).
+            return (false, Tracked(out_credit));
         }
+
+        // Heads: out_credit has value flip_e(true) = bws(prob_remaining, e).
         remaining_numer = remaining_numer - denom_x;
+        proof {
+            g_prob = prob_remaining;
+            g_eps = bernoulli_weighted_sum(prob_remaining, e);
+            credit = out_credit;
+        }
     }
 
-    // Now remaining_numer <= denom_x, so frac part ∈ [0, 1]
-    let Tracked(frac_credit) = thin_air();
-    proof { assume(false); }
+    // Now remaining_numer <= denom_x, so frac ∈ [0, 1].
+    // Flip Bernoulli(exp(-frac)) to get final result.
 
-    let (result, _out) = sample_bernoulli_exp1(
+    // TODO: i think you can also pass this to sample_bernoulli_exp1 
+    // after fixing the precondition of sample_bernoulli_exp1, but that will complicated
+    // the amplifcation factor reasoning...
+    if remaining_numer == 0 {
+        // exp(0) = 1, so Bernoulli(1) = always true.
+        // g_eps >= bws(exp(0), e) = bws(1, e) = e(true).
+        // Need to return credit with value e(true).
+        // credit has value g_eps >= e(true), so split off e(true).
+        proof {
+            axiom_exp_zero(); // exp(0) = 1
+            assert(remaining_numer as real / denom_x as real == 0real) by(nonlinear_arith)
+                requires remaining_numer == 0u64, denom_x > 0u64;
+            // g_prob == exp(0) == 1, bws(1, e) = 1·e(T) + 0·e(F) = e(T)
+            // So g_eps >= bws(1, e) = e(true), hence leftover >= 0
+            assert(bernoulli_weighted_sum(1real, e) == e(true)) by(nonlinear_arith)
+                requires bernoulli_weighted_sum(1real, e) == 1real * e(true) + (1real - 1real) * e(false);
+        }
+        let ghost leftover = g_eps - e(true);
+        let tracked (ret_credit, _discard) = ec_split(credit, e(true), leftover);
+        return (true, Tracked(ret_credit));
+    }
+
+    // 0 < remaining_numer <= denom_x, so frac ∈ (0, 1].
+    // Boost credit to ensure eps > 0 for sample_bernoulli_exp1.
+    proof { lemma_bws_nonneg(g_prob, e); } // g_eps >= bws(g_prob, e) >= 0
+    let Tracked(extra) = thin_air();
+    let ghost extra_val: real;
+    proof {
+        extra_val = choose |v: real| v > 0real &&
+            (ErrorCreditCarrier::Value { car: v } =~= extra.view());
+    }
+    let tracked boosted = ec_combine(credit, extra, g_eps, extra_val);
+
+    sample_bernoulli_exp1(
         remaining_numer,
         denom_x,
-        Ghost(|_b: bool| 0real),
-        Tracked(frac_credit),
-        Ghost(1real),
-    );
-
-    proof { assume(false); }
-    (result, Tracked(input_credit))
+        Ghost(e),
+        Tracked(boosted),
+        Ghost(g_eps + extra_val),
+    )
 }
 
 } // verus!
