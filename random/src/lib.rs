@@ -9,6 +9,7 @@ pub fn rand_ubig(bound: UBig) -> UBig {
 }
 
 pub use dashu::integer::UBig;
+pub use dashu::integer::IBig;
 
 pub fn ubig_zero() -> UBig {
     UBig::ZERO
@@ -55,6 +56,26 @@ pub fn ubig_to_i64(n: &UBig) -> i64 {
     i64::try_from(n).expect("UBig too large for i64")
 }
 
+pub fn ubig_div_u64(a: UBig, b: u64) -> UBig {
+    a / UBig::from(b)
+}
+
+pub fn ubig_add_u64(a: UBig, b: u64) -> UBig {
+    a + UBig::from(b)
+}
+
 pub fn ubig_lt(a: &UBig, b: &UBig) -> bool {
     a < b
+}
+
+pub fn ibig_from_ubig(n: UBig) -> IBig {
+    IBig::from(n)
+}
+
+pub fn ibig_neg(n: IBig) -> IBig {
+    -n
+}
+
+pub fn ibig_is_zero(n: &IBig) -> bool {
+    *n == IBig::ZERO
 }
