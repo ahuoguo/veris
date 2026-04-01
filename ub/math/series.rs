@@ -247,6 +247,47 @@ pub proof fn lemma_limit_unique(s: spec_fn(nat) -> real, limit1: real, limit2: r
     }
 }
 
+/// Non-decreasing transitivity: s(n) ≤ s(m) when n ≤ m.
+pub proof fn lemma_nondecreasing_le(s: spec_fn(nat) -> real, n: nat, m: nat)
+    requires is_nondecreasing(s), n <= m,
+    ensures seq_at(s, n) <= seq_at(s, m),
+    decreases m - n,
+{
+    if n < m {
+        lemma_nondecreasing_le(s, n + 1, m);
+        assert(seq_at(s, n) <= seq_at(s, n + 1));
+    }
+}
+
+/// The limit of a non-decreasing convergent sequence is an upper bound.
+pub proof fn lemma_monotone_limit_upper_bound(s: spec_fn(nat) -> real, limit: real)
+    requires
+        is_nondecreasing(s),
+        converges_to(s, limit),
+    ensures
+        is_bounded_above(s, limit),
+{
+    assert forall |n: nat| #[trigger] seq_at(s, n) <= limit by {
+        if seq_at(s, n) > limit {
+            let eps = seq_at(s, n) - limit;
+            assert(eps > 0real) by(nonlinear_arith)
+                requires seq_at(s, n) > limit, eps == seq_at(s, n) - limit;
+            assert(exists_close_suffix(s, limit, eps));
+            let start = choose |start: nat| suffix_is_close(s, limit, eps, start);
+            let m: nat = if n >= start { n } else { start };
+            assert(dist(seq_at(s, m), limit) < eps);
+            lemma_nondecreasing_le(s, n, m);
+            assert(false) by(nonlinear_arith)
+                requires
+                    seq_at(s, n) <= seq_at(s, m),
+                    dist(seq_at(s, m), limit) < eps,
+                    dist(seq_at(s, m), limit) == abs(seq_at(s, m) - limit),
+                    seq_at(s, n) > limit,
+                    eps == seq_at(s, n) - limit;
+        }
+    };
+}
+
 /// Shifted sequence converges to the same limit.
 pub proof fn lemma_limit_shift(s: spec_fn(nat) -> real, limit: real)
     requires converges_to(s, limit),

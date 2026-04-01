@@ -52,6 +52,36 @@ pub proof fn axiom_exp_add(a: real, b: real)
     ensures exp(-(a + b)) == exp(-a) * exp(-b),
 {}
 
+/// Bernoulli inequality: exp(-x) ≥ 1 - x for 0 < x ≤ 1.
+/// Derived from the Taylor series: T_2 = 1 - x ≤ exp(-x) (even partial sum underestimates).
+pub proof fn lemma_exp_bernoulli(x: real)
+    requires 0real < x <= 1real,
+    ensures exp(-x) >= 1real - x,
+{
+    // T_2 = partial_sum(exp_taylor_seq(x), 2) = term(0) + term(1) = 1 + (-x) = 1-x
+    axiom_exp_taylor_bounds(x, 2nat);
+    // n=2 is even, so T_2 ≤ exp(-x)
+    // Unfold T_2 = partial_sum(exp_taylor_seq(x), 2)
+    let s = exp_taylor_seq(x);
+    assert(partial_sum(s, 2nat) == partial_sum(s, 1nat) + s(1nat));
+    assert(partial_sum(s, 1nat) == partial_sum(s, 0nat) + s(0nat));
+    // s(0) = (-x)^0 / 0! = 1, s(1) = (-x)^1 / 1! = -x
+    assert(pow(-x, 0nat) == 1real);
+    assert(pow(-x, 1nat) == -x) by(nonlinear_arith)
+        requires pow(-x, 1nat) == -x * pow(-x, 0nat), pow(-x, 0nat) == 1real;
+    assert(factorial(0nat) == 1real);
+    assert(factorial(1nat) == 1real) by(nonlinear_arith)
+        requires factorial(1nat) == 1real * factorial(0nat), factorial(0nat) == 1real;
+    assert(partial_sum(s, 2nat) == 1real - x) by(nonlinear_arith)
+        requires
+            partial_sum(s, 2nat) == partial_sum(s, 1nat) + s(1nat),
+            partial_sum(s, 1nat) == s(0nat),
+            s(0nat) == pow(-x, 0nat) / factorial(0nat),
+            s(1nat) == pow(-x, 1nat) / factorial(1nat),
+            pow(-x, 0nat) == 1real, pow(-x, 1nat) == -x,
+            factorial(0nat) == 1real, factorial(1nat) == 1real;
+}
+
 // ============================================================================
 // Taylor series for exp(-x)
 //
@@ -114,5 +144,28 @@ pub proof fn axiom_exp_taylor_bounds(x: real, n: nat)
         n % 2 == 0 ==> partial_sum(exp_taylor_seq(x), n) <= exp(-x),
         n % 2 == 1 ==> exp(-x) <= partial_sum(exp_taylor_seq(x), n),
 {}
+
+// ============================================================================
+// Derived lemmas
+// ============================================================================
+
+/// exp(-x) == exp(-1) · exp(-(x-1)) when x = numer/denom ≥ 1.
+pub proof fn lemma_exp_decompose(numer: u64, denom: u64)
+    requires denom > 0, numer >= denom,
+    ensures
+        exp(-(numer as real / denom as real))
+            == exp(-1real) * exp(-((numer - denom) as real / denom as real)),
+{
+    let x = numer as real / denom as real;
+    let frac = (numer - denom) as real / denom as real;
+    assert(x == 1real + frac) by(nonlinear_arith)
+        requires x == numer as real / denom as real,
+            frac == (numer - denom) as real / denom as real,
+            denom > 0u64, numer >= denom;
+    assert(frac >= 0real) by(nonlinear_arith)
+        requires frac == (numer - denom) as real / denom as real,
+            denom > 0u64, numer >= denom;
+    axiom_exp_add(1real, frac);
+}
 
 } // verus!

@@ -5,7 +5,7 @@
 
 use vstd::prelude::*;
 
-use random::{UBig, ubig_zero, ubig_succ, ubig_pred, ubig_is_zero, ubig_add, ubig_mul, ubig_mul_u64, ubig_from_u64, ubig_is_odd};
+use random::{UBig, ubig_zero, ubig_succ, ubig_pred, ubig_is_zero, ubig_add, ubig_mul, ubig_mul_u64, ubig_from_u64, ubig_is_odd, ubig_div_u64, ubig_add_u64, IBig, ibig_from_ubig, ibig_neg, ibig_is_zero};
 
 verus! {
 
@@ -47,6 +47,13 @@ pub assume_specification[ random::ubig_from_u64 ](n: u64) -> (ret: UBig)
 pub assume_specification[ random::ubig_is_odd ](n: &UBig) -> (ret: bool)
     ensures ret == (ubig_view(n) % 2 == 1);
 
+pub assume_specification[ random::ubig_div_u64 ](a: UBig, b: u64) -> (ret: UBig)
+    requires b > 0,
+    ensures ubig_view(&ret) == ubig_view(&a) / b as nat;
+
+pub assume_specification[ random::ubig_add_u64 ](a: UBig, b: u64) -> (ret: UBig)
+    ensures ubig_view(&ret) == ubig_view(&a) + b as nat;
+
 #[verifier::external_body]
 pub fn ubig_lt(a: &UBig, b: &UBig) -> (ret: bool)
     ensures ret == (ubig_view(a) < ubig_view(b)),
@@ -54,11 +61,24 @@ pub fn ubig_lt(a: &UBig, b: &UBig) -> (ret: bool)
     a < b
 }
 
+// ============================================================================
+// IBig (signed big integer)
+// ============================================================================
+
+#[verifier::external_type_specification]
 #[verifier::external_body]
-pub fn ubig_to_i64(n: &UBig) -> (ret: i64)
-{
-    let v: u64 = n.try_into().unwrap();
-    v as i64
-}
+pub struct ExIBig(IBig);
+
+/// Ghost interpretation of an IBig as an int.
+pub uninterp spec fn ibig_view(n: &IBig) -> int;
+
+pub assume_specification[ random::ibig_from_ubig ](n: UBig) -> (ret: IBig)
+    ensures ibig_view(&ret) == ubig_view(&n) as int;
+
+pub assume_specification[ random::ibig_neg ](n: IBig) -> (ret: IBig)
+    ensures ibig_view(&ret) == -ibig_view(&n);
+
+pub assume_specification[ random::ibig_is_zero ](n: &IBig) -> (ret: bool)
+    ensures ret == (ibig_view(n) == 0int);
 
 } // verus!
