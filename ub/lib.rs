@@ -9,6 +9,7 @@ pub mod geo_dist;
 pub mod ho_rej_samp;
 pub mod discrete_laplace;
 pub mod random_walk;
+pub mod dp;
 
 // `fn main` is outside of `verus!`, so it is not checked
 fn main() {
