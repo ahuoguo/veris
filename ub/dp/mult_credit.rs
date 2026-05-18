@@ -1,10 +1,12 @@
-use vstd::pcm::*;
+use vstd::resource::pcm::*;
+use vstd::resource::algebra::ResourceAlgebra;
+use vstd::resource::Loc;
 use vstd::prelude::*;
 
 verus! {
 
 #[allow(non_snake_case)]
-pub uninterp spec fn MULT_EC_GLOBAL_LOC() -> int;
+pub uninterp spec fn MULT_EC_GLOBAL_LOC() -> Loc;
 
 pub enum MultCreditCarrier {
     Value { car: real },
@@ -25,7 +27,7 @@ impl MultCreditCarrier {
     }
 }
 
-impl PCM for MultCreditCarrier {
+impl vstd::resource::algebra::ResourceAlgebra for MultCreditCarrier {
     closed spec fn valid(self) -> bool {
         match self {
             MultCreditCarrier::Value { car } => 0real <= car,
@@ -34,8 +36,8 @@ impl PCM for MultCreditCarrier {
         }
     }
 
-    closed spec fn op(self, other: Self) -> Self {
-        match (self, other) {
+    closed spec fn op(a: Self, b: Self) -> Self {
+        match (a, b) {
             (MultCreditCarrier::Value { car: c1 }, MultCreditCarrier::Value { car: c2 }) => {
                 if c1 < 0real || c2 < 0real {
                     MultCreditCarrier::Invalid
@@ -48,11 +50,7 @@ impl PCM for MultCreditCarrier {
         }
     }
 
-    closed spec fn unit() -> Self {
-        MultCreditCarrier::Empty
-    }
-
-    proof fn closed_under_incl(a: Self, b: Self) {
+    proof fn valid_op(a: Self, b: Self) {
     }
 
     proof fn commutative(a: Self, b: Self) {
@@ -60,8 +58,14 @@ impl PCM for MultCreditCarrier {
 
     proof fn associative(a: Self, b: Self, c: Self) {
     }
+}
 
-    proof fn op_unit(a: Self) {
+impl PCM for MultCreditCarrier {
+    closed spec fn unit() -> Self {
+        MultCreditCarrier::Empty
+    }
+
+    proof fn op_unit(self) {
     }
 
     proof fn unit_valid() {

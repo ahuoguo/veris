@@ -1,11 +1,13 @@
-use vstd::pcm::*;
+use vstd::resource::pcm::*;
+use vstd::resource::algebra::ResourceAlgebra;
+use vstd::resource::Loc;
 use vstd::prelude::*;
 
 verus! {
 
 // Ghost name for the single global error-credit resource location.
 #[allow(non_snake_case)]
-pub uninterp spec fn EC_GLOBAL_LOC() -> int;
+pub uninterp spec fn EC_GLOBAL_LOC() -> Loc;
 
 // wrapper around ec, namely `↯`
 // A error credit represents a resource with a non zero value
@@ -29,7 +31,7 @@ impl ErrorCreditCarrier {
     }
 }
 
-impl PCM for ErrorCreditCarrier {
+impl vstd::resource::algebra::ResourceAlgebra for ErrorCreditCarrier {
     closed spec fn valid(self) -> bool {
         match self {
             ErrorCreditCarrier::Value { car } => 0real <= car < 1real,
@@ -38,8 +40,8 @@ impl PCM for ErrorCreditCarrier {
         }
     }
 
-    closed spec fn op(self, other: Self) -> Self {
-        match (self, other) {
+    closed spec fn op(a: Self, b: Self) -> Self {
+        match (a, b) {
             (ErrorCreditCarrier::Value { car: c1 }, ErrorCreditCarrier::Value { car: c2 }) => {
                 // REVIEW: we have to bake in the `nonnegreal` part in the op
                 // I guess verus doesn't have a good way to express subset types like Dafny...
@@ -55,11 +57,7 @@ impl PCM for ErrorCreditCarrier {
         }
     }
 
-    closed spec fn unit() -> Self {
-        ErrorCreditCarrier::Empty
-    }
-
-    proof fn closed_under_incl(a: Self, b: Self) {
+    proof fn valid_op(a: Self, b: Self) {
     }
 
     proof fn commutative(a: Self, b: Self) {
@@ -67,8 +65,14 @@ impl PCM for ErrorCreditCarrier {
 
     proof fn associative(a: Self, b: Self, c: Self) {
     }
+}
 
-    proof fn op_unit(a: Self) {
+impl PCM for ErrorCreditCarrier {
+    closed spec fn unit() -> Self {
+        ErrorCreditCarrier::Empty
+    }
+
+    proof fn op_unit(self) {
     }
 
     proof fn unit_valid() {
