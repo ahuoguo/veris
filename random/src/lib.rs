@@ -79,3 +79,31 @@ pub fn ibig_neg(n: IBig) -> IBig {
 pub fn ibig_is_zero(n: &IBig) -> bool {
     *n == IBig::ZERO
 }
+
+pub fn ibig_zero() -> IBig {
+    IBig::ZERO
+}
+
+pub fn ibig_from_i64(n: i64) -> IBig {
+    IBig::from(n)
+}
+
+pub fn ibig_add(a: &IBig, b: &IBig) -> IBig {
+    a.clone() + b.clone()
+}
+
+pub fn ibig_sub(a: &IBig, b: &IBig) -> IBig {
+    a.clone() - b.clone()
+}
+
+pub fn ibig_ge(a: &IBig, b: &IBig) -> bool {
+    a >= b
+}
+
+pub fn ibig_lt(a: &IBig, b: &IBig) -> bool {
+    a < b
+}
+
+pub fn ibig_clone(n: &IBig) -> IBig {
+    n.clone()
+}

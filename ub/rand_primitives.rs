@@ -1,5 +1,6 @@
 use vstd::calc_macro::*;
-use vstd::pcm::*;
+use vstd::resource::pcm::*;
+use vstd::resource::algebra::ResourceAlgebra;
 use vstd::prelude::*;
 
 use random::UBig;
