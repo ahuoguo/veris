@@ -16,12 +16,17 @@ use random::{UBig, ubig_zero, ubig_succ};
 verus! {
 
 use crate::ub::*;
+#[cfg(verus_keep_ghost)]
 use crate::extern_spec::{ExUBig, ubig_view};
+#[cfg(verus_keep_ghost)]
 use crate::math::pow::{pow, archimedean_exp_growth};
+#[cfg(verus_keep_ghost)]
 use crate::math::series::shift_e;
+#[cfg(verus_keep_ghost)]
 use crate::math::exp::exp;
 use crate::rand_primitives::thin_air;
 use crate::discrete_laplace::bernoulli_exp::sample_bernoulli_exp;
+#[cfg(verus_keep_ghost)]
 use crate::discrete_laplace::bernoulli_rational::bernoulli_weighted_sum;
 
 /// k-th summand of the geometric series: p^k · (1 - p) · ℰ(k).

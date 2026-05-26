@@ -1,5 +1,7 @@
 use vstd::resource::pcm::*;
+#[cfg(verus_keep_ghost)]
 use vstd::resource::algebra::ResourceAlgebra;
+#[cfg(verus_keep_ghost)]
 use vstd::resource::Loc;
 use vstd::prelude::*;
 
@@ -72,6 +74,7 @@ impl PCM for MultCreditCarrier {
     }
 }
 
+#[allow(dead_code)]
 pub struct MultCreditResource {
     r: Resource<MultCreditCarrier>,
 }

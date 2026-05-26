@@ -1,0 +1,28 @@
+[package]
+name = "ub"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "ub"
+path = "lib.rs"
+
+[[bin]]
+name = "ub"
+path = "src/main.rs"
+
+[dependencies]
+vstd = "=0.0.0-2026-05-17-0151"
+random = { path = "../random" }
+
+[package.metadata.verus]
+verify = true
+
+[package.metadata.verus.ide]
+extra_args = "--crate-type=lib --expand-errors"
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = [
+    'cfg(verus_only)',
+    'cfg(verus_keep_ghost)',
+] }

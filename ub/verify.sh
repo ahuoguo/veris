@@ -1,1 +1,2 @@
-verus lib.rs -L dependency=../random/target/release/deps/ --extern random=../random/target/release/librandom.rlib
+#!/bin/bash
+exec cargo verus verify -p ub "$@" --manifest-path "$(dirname "$0")/../Cargo.toml"

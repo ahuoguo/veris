@@ -18,8 +18,14 @@ use random::UBig;
 verus! {
 
 use crate::ub::*;
-use crate::rand_primitives::{rand_ubig, average_nat, sum_credit};
-use crate::extern_spec::{ExUBig, ubig_view, ubig_lt};
+use crate::rand_primitives::rand_ubig;
+#[cfg(verus_keep_ghost)]
+use crate::rand_primitives::{average_nat, sum_credit};
+use crate::extern_spec::ubig_lt;
+#[cfg(verus_keep_ghost)]
+use crate::extern_spec::ExUBig;
+#[cfg(verus_keep_ghost)]
+use crate::extern_spec::ubig_view;
 
 /// Weighted sum for Bernoulli(p): p · ℰ(true) + (1 - p) · ℰ(false).
 pub open spec fn bernoulli_weighted_sum(

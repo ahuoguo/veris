@@ -15,19 +15,27 @@
 
 use vstd::prelude::*;
 
-use random::{UBig, IBig, ubig_from_u64, ibig_from_ubig, ibig_neg, ibig_is_zero};
+use random::{IBig, ubig_from_u64, ibig_from_ubig, ibig_neg, ibig_is_zero};
+#[cfg(verus_keep_ghost)]
+use random::UBig;
 
 verus! {
 
 use crate::ub::*;
+#[cfg(verus_keep_ghost)]
 use crate::math::pow::{pow, archimedean_exp_growth};
+#[cfg(verus_keep_ghost)]
 use crate::math::series::*;
+#[cfg(verus_keep_ghost)]
 use crate::math::exp::{exp, axiom_exp_neg_range, axiom_exp_neg_strict};
 use crate::rand_primitives::thin_air;
-use crate::discrete_laplace::bernoulli_rational::{bernoulli_weighted_sum, sample_bernoulli_rational};
-use crate::discrete_laplace::geometric_exp::{
-    sample_geometric_exp, geo_exp_series_bounded_by, geo_exp_partial_sum, geo_exp_summand,
-};
+#[cfg(verus_keep_ghost)]
+use crate::discrete_laplace::bernoulli_rational::bernoulli_weighted_sum;
+use crate::discrete_laplace::bernoulli_rational::sample_bernoulli_rational;
+use crate::discrete_laplace::geometric_exp::sample_geometric_exp;
+#[cfg(verus_keep_ghost)]
+use crate::discrete_laplace::geometric_exp::{geo_exp_series_bounded_by, geo_exp_partial_sum, geo_exp_summand};
+#[cfg(verus_keep_ghost)]
 use crate::extern_spec::{ExUBig, ExIBig, ubig_view, ibig_view};
 
 /// Summand for |x| = k ≥ 1: P[+k]·ℰ(+k) + P[-k]·ℰ(-k).
