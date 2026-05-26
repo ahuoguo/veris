@@ -15,13 +15,16 @@
 //   [{ ↯(ε) }] sample_bernoulli_exp(x) [{ v. ↯(ℰ(v)) }]
 
 use vstd::prelude::*;
+#[cfg(verus_keep_ghost)]
 use vstd::calc_macro::*;
 
 verus! {
 
 use crate::ub::*;
+#[cfg(verus_keep_ghost)]
 use crate::discrete_laplace::bernoulli_rational::{bernoulli_weighted_sum, lemma_bws_nonneg};
 use crate::discrete_laplace::bernoulli_exp1::sample_bernoulli_exp1;
+#[cfg(verus_keep_ghost)]
 use crate::math::exp::{exp, axiom_exp_neg_range, lemma_exp_decompose, axiom_exp_zero};
 
 /// Credit allocation for the Bernoulli(exp(-1)) flip at each iteration.

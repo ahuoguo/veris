@@ -21,12 +21,15 @@
 // Under adjacency only one j has |^q[j]| > 0, so total ≤ 2|^q[j]|·ε ≤ 2·ε.
 
 use vstd::prelude::*;
+#[cfg(verus_keep_ghost)]
 use random::IBig;
 
 verus! {
 
 use crate::dp::mult_credit::*;
-use crate::dp::num_d::{NumD, abs_int};
+use crate::dp::num_d::NumD;
+#[cfg(verus_keep_ghost)]
+use crate::dp::num_d::abs_int;
 
 /// Sum of `q[j].dist()` for j ∈ [lo, hi).
 pub open spec fn dsum(q: Seq<NumD>, lo: int, hi: int) -> int

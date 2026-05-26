@@ -22,7 +22,10 @@ use random::{IBig, ibig_from_i64, ibig_add, ibig_ge, ibig_lt, ibig_clone};
 verus! {
 
 use crate::dp::mult_credit::*;
-use crate::extern_spec::{ExIBig, ibig_view};
+#[cfg(verus_keep_ghost)]
+use crate::extern_spec::ExIBig;
+#[cfg(verus_keep_ghost)]
+use crate::extern_spec::ibig_view;
 
 pub open spec fn abs_int(x: int) -> int {
     if x >= 0 { x } else { -x }
@@ -167,6 +170,7 @@ impl NumD {
         let ghost d = d_chooser(ibig_view(&v));
         (NumD { v, d: Ghost(d) }, Tracked::assume_new())
     }
+
 }
 
 } // verus!

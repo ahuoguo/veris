@@ -1,5 +1,8 @@
+#[cfg(verus_keep_ghost)]
 use vstd::calc_macro::*;
+#[cfg(verus_keep_ghost)]
 use vstd::resource::pcm::*;
+#[cfg(verus_keep_ghost)]
 use vstd::resource::algebra::ResourceAlgebra;
 use vstd::prelude::*;
 
@@ -8,8 +11,12 @@ use random::UBig;
 verus! {
 
 use crate::ub::*;
+#[cfg(verus_keep_ghost)]
 use crate::math::pow::pow;
-use crate::extern_spec::{ExUBig, ubig_view};
+#[cfg(verus_keep_ghost)]
+use crate::extern_spec::ExUBig;
+#[cfg(verus_keep_ghost)]
+use crate::extern_spec::ubig_view;
 
 /// Recursive sum of credit_alloc over [0, n)
 /// credit_alloc(i) is the error credit allocated to outcome i

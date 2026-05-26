@@ -19,17 +19,25 @@
 
 use vstd::prelude::*;
 
-use random::{UBig, ubig_from_u64, ubig_succ, ubig_mul_u64, ubig_is_odd};
+use random::{ubig_from_u64, ubig_succ, ubig_mul_u64, ubig_is_odd};
 
 verus! {
 
 use crate::ub::*;
 use crate::rand_primitives::thin_air;
+#[cfg(verus_keep_ghost)]
 use crate::math::pow::{pow, archimedean_exp_growth};
+#[cfg(verus_keep_ghost)]
 use crate::math::series::{lemma_pow_nonneg, partial_sum};
+#[cfg(verus_keep_ghost)]
 use crate::math::exp::{exp, factorial, exp_taylor_term, exp_taylor_seq, axiom_exp_taylor_bounds};
-use crate::extern_spec::{ExUBig, ubig_view};
-use crate::discrete_laplace::bernoulli_rational::{bernoulli_weighted_sum, lemma_bws_nonneg, sample_bernoulli_rational};
+#[cfg(verus_keep_ghost)]
+use crate::extern_spec::ExUBig;
+#[cfg(verus_keep_ghost)]
+use crate::extern_spec::ubig_view;
+use crate::discrete_laplace::bernoulli_rational::sample_bernoulli_rational;
+#[cfg(verus_keep_ghost)]
+use crate::discrete_laplace::bernoulli_rational::{bernoulli_weighted_sum, lemma_bws_nonneg};
 
 // ============================================================================
 // Spec functions (all use nat for step k)

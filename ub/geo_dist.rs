@@ -21,15 +21,22 @@
 // finite partial sums: ∀ n. ε ≥ Σ_{i=0}^{n-1} (1/2)^(i+1) * ℰ(i).
 
 use vstd::prelude::*;
-use random::{UBig, ubig_zero, ubig_succ, ubig_add};
+use random::{UBig, ubig_zero, ubig_succ};
+#[cfg(verus_keep_ghost)]
+use random::ubig_add;
 
 verus! {
 
 use crate::ub::*;
 use crate::rand_primitives::{rand_1_u64, thin_air};
+#[cfg(verus_keep_ghost)]
 use crate::math::pow::{pow, archimedean_exp_growth};
+#[cfg(verus_keep_ghost)]
 use crate::math::series::*;
-use crate::extern_spec::{ExUBig, ubig_view};
+#[cfg(verus_keep_ghost)]
+use crate::extern_spec::ExUBig;
+#[cfg(verus_keep_ghost)]
+use crate::extern_spec::ubig_view;
 
 /// Credit allocation: outcome 0 → ℰ(0), outcome 1 → 2ε - ℰ(0).
 spec fn geo_dist_credit_alloc(e: spec_fn(nat) -> real, eps: real) -> spec_fn(real) -> real {

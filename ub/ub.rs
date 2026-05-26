@@ -1,5 +1,7 @@
 use vstd::resource::pcm::*;
+#[cfg(verus_keep_ghost)]
 use vstd::resource::algebra::ResourceAlgebra;
+#[cfg(verus_keep_ghost)]
 use vstd::resource::Loc;
 use vstd::prelude::*;
 
@@ -79,6 +81,7 @@ impl PCM for ErrorCreditCarrier {
     }
 }
 
+#[allow(dead_code)]
 pub struct ErrorCreditResource {
     r: Resource<ErrorCreditCarrier>,
 }
@@ -170,5 +173,3 @@ pub proof fn ec_split(
 }
 
 } // verus!
-
-fn main() {}

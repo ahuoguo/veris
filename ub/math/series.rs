@@ -6,7 +6,7 @@
 use vstd::prelude::*;
 
 verus! {
-
+#[cfg(verus_keep_ghost)]
 use crate::math::pow::pow;
 
 // ============================================================================

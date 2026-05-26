@@ -14,9 +14,13 @@
 //   - OR we have ↯ε' where ε ≤ ε' * εfactor
 
 use vstd::prelude::*;
+#[cfg(verus_keep_ghost)]
 use vstd::calc_macro::*;
 use crate::ub::*;
-use crate::rand_primitives::{rand_u64, rand_1_u64, thin_air, average, sum_credit};
+use crate::rand_primitives::{rand_u64, thin_air};
+#[cfg(verus_keep_ghost)]
+use crate::rand_primitives::{average, sum_credit};
+#[cfg(verus_keep_ghost)]
 use crate::math::pow::{pow, archimedean_exp_growth};
 
 verus! {

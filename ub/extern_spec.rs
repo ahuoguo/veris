@@ -5,12 +5,15 @@
 
 use vstd::prelude::*;
 
-use random::{UBig, ubig_zero, ubig_succ, ubig_pred, ubig_is_zero, ubig_add, ubig_mul, ubig_mul_u64, ubig_from_u64, ubig_is_odd, ubig_div_u64, ubig_add_u64, IBig, ibig_from_ubig, ibig_neg, ibig_is_zero, ibig_from_i64, ibig_add, ibig_ge, ibig_lt, ibig_clone};
+use random::{UBig, IBig};
+#[cfg(verus_keep_ghost)]
+use random::{ubig_zero, ubig_succ, ubig_pred, ubig_is_zero, ubig_add, ubig_mul, ubig_mul_u64, ubig_from_u64, ubig_is_odd, ubig_div_u64, ubig_add_u64, ibig_from_ubig, ibig_neg, ibig_is_zero, ibig_from_i64, ibig_add, ibig_ge, ibig_lt, ibig_clone};
 
 verus! {
 
 #[verifier::external_type_specification]
 #[verifier::external_body]
+#[allow(dead_code)]
 pub struct ExUBig(UBig);
 
 /// Ghost interpretation of a UBig as a nat.
@@ -67,6 +70,7 @@ pub fn ubig_lt(a: &UBig, b: &UBig) -> (ret: bool)
 
 #[verifier::external_type_specification]
 #[verifier::external_body]
+#[allow(dead_code)]
 pub struct ExIBig(IBig);
 
 /// Ghost interpretation of an IBig as an int.

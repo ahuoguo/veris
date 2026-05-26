@@ -23,7 +23,10 @@ use random::IBig;
 verus! {
 
 use crate::dp::mult_credit::*;
-use crate::dp::num_d::{NumD, abs_int};
+use crate::dp::num_d::NumD;
+#[cfg(verus_keep_ghost)]
+use crate::dp::num_d::abs_int;
+#[cfg(verus_keep_ghost)]
 use crate::extern_spec::ExIBig;
 
 pub fn num_sparse_vector(
