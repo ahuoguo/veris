@@ -13,7 +13,7 @@
 //   ─────────────────────────────────────────────────────────────────────────
 //   [{ ↯(eps_avg) }] sample_exp_rejection(d) [{ u. ↯(ℰ(u)) }]
 //
-// Credit derivation.  With
+// Credit derivation:
 //
 //   alloc(w)        = e^{−w/d} · flip_accept(w) + (1 − e^{−w/d}) · flip_reject
 //   flip_accept(w)  = ℰ(w)                                    // accept arm
@@ -97,7 +97,7 @@ pub open spec fn rej_amp(d: nat) -> real {
 // ============================================================================
 
 /// Per-outcome credit for the uniform rand_u64 step:
-///   h(u) = e^{-u/d} · ℰ(u) + (1 - e^{-u/d}) · rej_credit.
+///   h(u) = e^{−u/d} · ℰ(u) + (1 − e^{−u/d}) · rej_credit.
 pub open spec fn rej_credit_alloc(
     d: nat, e: spec_fn(nat) -> real, rej_credit: real,
 ) -> spec_fn(real) -> real {
@@ -221,8 +221,7 @@ pub proof fn lemma_rej_weight_step(d: nat, i: nat)
     assert(y >= 0real) by(nonlinear_arith)
         requires d > 0, y == 1real / d as real;
     axiom_exp_add(x, y);
-    // e^{−(x+y)} = e^{−x} · e^{−y}
-    // Need (i+1)/d = i/d + 1/d.
+    // (i+1)/d = i/d + 1/d, so e^{−(i+1)/d} = e^{−x} · e^{−y}.
     assert((i + 1) as real / d as real == x + y) by(nonlinear_arith)
         requires d > 0, x == i as real / d as real, y == 1real / d as real;
 }
@@ -264,8 +263,7 @@ pub proof fn lemma_rej_weight_sum_telescope(d: nat, n: nat)
     }
 }
 
-/// Normalizing constant identity:
-///   N · (1 - e^{-1/d}) = 1 - e^{-1}.
+/// Normalizing constant identity:  N · (1 − e^{−1/d}) = 1 − e^{−1}.
 /// Special case n = d of lemma_rej_weight_sum_telescope.
 pub proof fn lemma_norm_const_identity(d: nat)
     requires d > 0,

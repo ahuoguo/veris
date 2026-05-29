@@ -10,7 +10,6 @@
 // Distribution claim:  result ~ Geometric(1 − e^{−n/d}),  with PMF
 //
 //   outer_geom_pmf(r) = (e^{−n/d})^r · (1 − e^{−n/d}).
-//     same as μₛ(r)
 //
 // Hoare rule we prove:
 //
@@ -45,10 +44,10 @@
 //      = (1/N) · Σ_{u<d} e^{−u/d} · Σ_{v∈ℕ} inner_geom_summand(v) · g(u,v)  (E4)
 //      = (1 − e^{−1})/N · Σ_{u<d, v∈ℕ}                                      (E3)
 //                            e^{−u/d − v} · F((u + d·v) / n)
-//        EUCLIDEAN BIJECTION:      ℕ × {0..d−1}  ↔  ℕ, 
+//                  BIJECTION:      ℕ × {0..d−1}  ↔  ℕ, 
 //                                  (v, u)        ↔ u + d·v = k
 //      = (1 − e^{−1})/N · Σ_{k∈ℕ} e^{−k/d} · F(k / n)                       (E2)
-//        EUCLIDEAN BIJECTION:      ℕ × {0..n−1}  ↔  ℕ,
+//                  BIJECTION:      ℕ × {0..n−1}  ↔  ℕ,
 //                                  (r, i)        ↔ n·r + i = k
 //        so F(k/n) = F(r),  e^{−k/d} = (e^{−n/d})^r · e^{−i/d};
 //        Σ_{i<n} e^{−i/d} = (1 − e^{−n/d})/(1 − e^{−1/d})  (closed form),
@@ -68,18 +67,14 @@
 //              `lemma_geo_exp_partial_eq_inner` bridges
 //                  (1 − e^{−1}) · inner_at_u  =  geo_exp_partial_sum.
 //
-//   E4 → E3    Algebraic factoring + finite sum-of-limits (over u ∈ {0..d−1}).
-//              `lemma_weighted_joint_helper_converges` does the induction on
-//              u_max, using `math::series::lemma_limit_add` and
-//              `lemma_limit_scale`.  The Σ_{v ∈ ℕ} on the E4 line is realized
-//              only at the limit; the partial-sum analog at each m sits inside
-//              `joint_helper(m, d)`.
+//   E4 → E3    Per-term algebraic factoring (no limit interchange): pull
+//              (1 − e^{−1}) out of the inner sum and combine exponents,
+//              e^{−u/d} · (e^{−1})^v = e^{−u/d − v}.  Both lines carry the
+//              same Σ_{v∈ℕ}; this is just the summand rewritten.
 //
 //   E3 ↔ E2    EUCLIDEAN BIJECTION (divisor d):
 //              `lemma_euclidean_bijection_partial` proves the finite
-//              re-indexing  Σ_{u<d, v<M} = Σ_{k<d·M}  term-by-term.  The
-//              ∞-form is reached after `lemma_weighted_joint_helper_converges`
-//              passes to the limit.
+//              re-indexing  Σ_{u<d, v<M} = Σ_{k<d·M}  term-by-term.
 //
 //   E2 → E1    BUCKETING (divisor n) + closed-form sums:
 //              `lemma_outer_partial_buckets`         (k → (r, i) bucketing);
@@ -90,13 +85,18 @@
 //
 //   E1 ≤ ε     Hoare-rule precondition handed in by the caller.
 //
-// PARTIAL-SUM BUNDLING.  Steps E3 ↔ E2 → E1 are bundled at the finite
-// (m-truncated) level by `lemma_partial_weighted_avg_bound`:
+// FINITE TRUNCATION + PASS TO THE LIMIT.  The bijection / bucket / closed-form
+// lemmas above operate at a finite v-cutoff m, so the chain is run truncated:
+// `lemma_partial_weighted_avg_bound` bundles E3 ↔ E2 → E1 at each m,
 //      ∀ m.  (1 − e^{−1}) · joint_helper(numer, denom, e, m, d)  ≤  N · dist_bound,
-// whose LHS is the m-th partial sum of the E3 double-sum.  Passing this
-// uniform bound through the limit (`lemma_weighted_joint_helper_converges`
-// for convergence + `math::series::lemma_limit_le_bound` for the pass-through)
-// is what gives E6 ≤ N · dist_bound, i.e. dist_bound ≥ E_{u ~ μ_{L(d)}}[ f(u) ].
+// where the LHS is the m-th partial sum of the E3 double-sum.  Write
+// S := Σ_{u<d} e^{−u/d} · f(u)  (so E6 = S / N).  Two limit facts finish:
+//   • `lemma_weighted_joint_helper_converges`:  as m → ∞ that LHS converges to
+//     S  (sum-of-limits over the finite outer u-sum, via
+//     `math::series::lemma_limit_add` / `lemma_limit_scale`), and
+//   • `math::series::lemma_limit_le_bound`:  a limit of values all ≤ N · dist_bound
+//     is itself ≤ N · dist_bound,  so  S ≤ N · dist_bound.
+// Dividing by N gives  E6 = S / N ≤ dist_bound,  i.e. dist_bound ≥ E_{u ~ μ_{L(d)}}[ f(u) ].
 //
 // LIMIT-PASS-THROUGH LEMMAS (lifting partial-sum facts to facts about f):
 //
@@ -109,12 +109,6 @@
 //   • `lemma_weighted_avg_bound` — dist_bound ≥ E_{u ~ rejection_dist}[ f(u) ]
 //                                  (the E6 → E1 chain, packaged).
 //
-// No axioms remain beyond standard exp / series ones.  The fast sampler then
-// composes the two already-formalized Hoare rules:
-//
-//   • sample_exp_rejection :  ε ≥ E_{u ~ rejection_dist}[ f(u) ]   (consumes E6 ≤ ε)
-//   • sample_geometric_exp :  f(u) ≥ E_{v ~ Geom(1 − e^{−1})}[ g(u, v) ]
-//                                                                 (consumes E5 → E4)
 
 use vstd::prelude::*;
 
@@ -1204,7 +1198,6 @@ proof fn lemma_inner_partial_nonneg_at(
 ///
 /// Proof: `lemma_f_is_limit` gives `converges_to(seq, f(u))`; partial sums
 /// are nonneg (`lemma_inner_partial_nonneg_at`); apply `lemma_limit_ge_bound`.
-#[verifier::spinoff_prover]
 proof fn lemma_f_nonneg(
     numer: nat, denom: nat, e: spec_fn(nat) -> real, dist_bound: real, u: nat,
 )
@@ -1264,19 +1257,16 @@ proof fn lemma_f_bounds_inner(
 // Weighted-average bound: dist_bound ≥ E_{u ~ rejection_dist}[ f(u) ].
 // ============================================================================
 
-/// For each u_max ≤ d, the weighted partial-sum sequence
-///
-///   W(u_max) := m ↦ (1 − e^{−1}) · joint(m, u_max)
-///             = Σ_{u<u_max} e^{−u/d} · Σ_{v<m} (e^{−1})^v · (1 − e^{−1}) · g(u, v)
-///
-/// converges to
-///   Σ_{u<u_max} e^{−u/d} · f(u).
+/// As m → ∞,
+///   Σ_{u<u_max} e^{−u/d} · Σ_{v<m} (e^{−1})^v · (1 − e^{−1}) · g(u, v)
+///      ⟶  Σ_{u<u_max} e^{−u/d} · f(u),
+/// for each u_max ≤ d.  I.e. taking the inner v-sum to its limit f(u)
+/// commutes with the finite outer u-sum (sum of limits = limit of sums).
 ///
 /// Proof: induction on u_max.  The step uses `lemma_geo_exp_partial_eq_inner`
 /// to bridge inner(u, m) and the inner Geom partial sum at u, then
 /// `lemma_limit_scale` (scale by e^{−k/d}) and `lemma_limit_add` (sum of
 /// converging sequences) to combine the IH with `lemma_f_is_limit`.
-#[verifier::spinoff_prover]
 proof fn lemma_weighted_joint_helper_converges(
     numer: nat, denom: nat, e: spec_fn(nat) -> real, dist_bound: real, u_max: nat,
 )
