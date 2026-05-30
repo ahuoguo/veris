@@ -36,12 +36,14 @@
 //      mean never exceeds the uniform mean:  fdr_f(1,0,k) ≤ average_nat(n,ℰ)
 //      (`lemma_fdr_f_le_average`), so the uniform precondition ε ≥ average_nat starts it.
 //
-//  (2) TERMINATION — the failure probability  fdr_fail(v,c,k) = 1 − P(accept within k
-//      flips)  (independent of ℰ), same shape with accept ↦ 0 and k = 0 ↦ 1:
-//        fdr_fail(v,c,0) = 1
-//        fdr_fail(v,c,k) = ½·( fdr_fail_h(2v,2c,k−1) + fdr_fail_h(2v,2c+1,k−1) )
+//  (2) TERMINATION — the failure probability  fdr_fail_f(v,c,k) = 1 − P(accept within k flips)
+//        fdr_fail_f(v,c,0) = 1                                       (ran out of k)
+//        fdr_fail_f(v,c,k) = ½·( fdr_fail_h(2v,2c,k−1) + fdr_fail_h(2v,2c+1,k−1) )
+//        fdr_fail_h(v,c,k) = 0                     if v ≥ n, c < n   (accept)
+//                          = fdr_fail_f(v−n,c−n,k) if v ≥ n, c ≥ n   (reject, restart)
+//                          = fdr_fail_f(v,c,k)     if v < n          (continue doubling)
 //
-// The loop carries  credit = ↯(ce)  with  ce ≥ fdr_f(v,c,k) + fdr_fail(v,c,k),
+// The loop carries  credit = ↯(ce)  with  ce ≥ fdr_f(v,c,k) + fdr_fail_f(v,c,k),
 // `k` the structural `decreases`.  Each coin flip is credit-exact (the allocation
 // b ↦ fdr_h(…) + fdr_fail_h(…) averages to the invariant's RHS); on ACCEPT the fail
 // term is 0, so the held credit is exactly ↯(ℰ(c)); at k = 0 the fail term is 1,
@@ -50,11 +52,11 @@
 //
 // Almost-sure termination (that some `k` suffices) is FDR's analogue of the random
 // walk's harmonic argument, via the SAME sum-trick as the value bound:  summing the
-// failure probability over c,  FS(v,k) := Σ_{c<v} fdr_fail(v,c,k),  collapses by
+// failure probability over c,  FS(v,k) := Σ_{c<v} fdr_fail_f(v,c,k),  collapses by
 // reindex + threshold-split to  FS(v,k) = ½·FS(next(v), k−1),  where next(v) = 2v if
 // 2v < n else 2v−n (the loop's own v-update — so next(v) ∈ [0,n) because v < n).  With
 // FS(v,0) = v, unrolling gives  FS(v,k) ≤ n / 2^k → 0  (`lemma_fdr_fail_fs_bound`).  Since
-// fdr_fail(1,0,k) = FS(1,k) ≤ n/2^k, Archimedes yields a sufficient `k`
+// fdr_fail_f(1,0,k) = FS(1,k) ≤ n/2^k, Archimedes yields a sufficient `k`
 // (`lemma_fdr_fail_witness`).
 
 use vstd::prelude::*;
