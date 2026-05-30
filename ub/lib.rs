@@ -10,5 +10,6 @@ pub mod ho_rej_samp;
 pub mod discrete_laplace;
 pub mod random_walk;
 pub mod dp;
+pub mod fdr;
 
 
