@@ -46,11 +46,7 @@ pub fn rand_u64(
     bound: u64,
     Tracked(e1): Tracked<ErrorCreditResource>,
     Ghost(e2): Ghost<spec_fn(real) -> real>,
-) -> (ret: (
-    // TODO: can't have return value like this: ((n, e2): (u64, Tracked<ErrorCreditResource>))
-    u64,
-    Tracked<ErrorCreditResource>,
-))
+) -> ((n, out_credit): (u64, Tracked<ErrorCreditResource>))
     requires
       // ε₁ ≥ 𝔼(ℰ₂)
       bound > 0,
@@ -58,9 +54,9 @@ pub fn rand_u64(
       exists |eps: real| (ErrorCreditCarrier::Value { car: eps } =~= e1.view()) && eps >= average(bound, e2),
     ensures
       // Result is in range [0, bound)
-      ret.0 < bound,
+      n < bound,
       // owns ↯(ℰ₂(n))
-      (ErrorCreditCarrier::Value { car: e2(ret.0 as real) }) =~= ret.1.view().view(),
+      (ErrorCreditCarrier::Value { car: e2(n as real) }) =~= out_credit.view().view(),
 {
     let val: u64 = random::rand_u64(bound);
     (val, Tracked::assume_new())
@@ -74,15 +70,15 @@ pub fn rand_ubig(
     bound: &UBig,
     Tracked(e1): Tracked<ErrorCreditResource>,
     Ghost(e2): Ghost<spec_fn(real) -> real>,
-) -> (ret: (UBig, Tracked<ErrorCreditResource>))
+) -> ((n, out_credit): (UBig, Tracked<ErrorCreditResource>))
     requires
         ubig_view(bound) > 0,
         forall |i: nat| (#[trigger] e2(i as real)) >= 0real,
         exists |eps: real| (ErrorCreditCarrier::Value { car: eps } =~= e1.view())
             && eps >= average_nat(ubig_view(bound), e2),
     ensures
-        ubig_view(&ret.0) < ubig_view(bound),
-        (ErrorCreditCarrier::Value { car: e2(ubig_view(&ret.0) as real) }) =~= ret.1.view().view(),
+        ubig_view(&n) < ubig_view(bound),
+        (ErrorCreditCarrier::Value { car: e2(ubig_view(&n) as real) }) =~= out_credit.view().view(),
 {
     let val = random::rand_ubig(bound.clone());
     (val, Tracked::assume_new())
@@ -115,17 +111,14 @@ pub open spec fn flip_credit_alloc(x: real) -> real {
 pub fn rand_1_u64(
     Tracked(input_credit): Tracked<ErrorCreditResource>,
     Ghost(credit_alloc): Ghost<spec_fn(real) -> real>,
-) -> (ret: (
-    u64,
-    Tracked<ErrorCreditResource>,
-))
+) -> ((n, out_credit): (u64, Tracked<ErrorCreditResource>))
     requires
         forall |i: nat| (#[trigger] credit_alloc(i as real)) >= 0real,
         exists |eps: real| (ErrorCreditCarrier::Value { car: eps } =~= input_credit.view()) &&
             eps >= (credit_alloc(0real) + credit_alloc(1real)) / 2real,
     ensures
-        ret.0 == 0 || ret.0 == 1,
-        (ErrorCreditCarrier::Value { car: credit_alloc(ret.0 as real) }) =~= ret.1.view().view(),
+        n == 0 || n == 1,
+        (ErrorCreditCarrier::Value { car: credit_alloc(n as real) }) =~= out_credit.view().view(),
 {
     // Prove that average(2, credit_alloc) == (credit_alloc(0) + credit_alloc(1)) / 2
     // by unfolding sum_credit using asserts

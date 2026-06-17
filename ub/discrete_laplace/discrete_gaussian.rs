@@ -1431,7 +1431,7 @@ pub fn sample_discrete_gaussian(
     Ghost(e): Ghost<spec_fn(int) -> real>,
     Tracked(input_credit): Tracked<ErrorCreditResource>,
     Ghost(eps): Ghost<real>,
-) -> (ret: (IBig, Tracked<ErrorCreditResource>))
+) -> ((value, out_credit): (IBig, Tracked<ErrorCreditResource>))
     requires
         rbig_view(scale) > 0real,
         forall |x: int| (#[trigger] e(x)) >= 0real,
@@ -1442,7 +1442,7 @@ pub fn sample_discrete_gaussian(
             rbig_view(scale) * rbig_view(scale),
             (rbig_view(scale).floor() + 1) as real, e, eps),
     ensures
-        ret.1@.view() =~= (ErrorCreditCarrier::Value { car: e(ibig_view(&ret.0)) }),
+        out_credit@.view() =~= (ErrorCreditCarrier::Value { car: e(ibig_view(&value)) }),
 {
     // scale = sn/sd  (sn ≥ 1 since scale > 0, sd ≥ 1).
     let parts = rbig_into_parts(scale);

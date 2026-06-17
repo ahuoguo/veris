@@ -33,7 +33,7 @@ pub fn sparse_vector(
     q: &Vec<NumD>,
     Tracked(credit): Tracked<MultCreditResource>,
     Ghost(eps_budget): Ghost<real>,
-) -> (ret: (Vec<bool>, Tracked<MultCreditResource>))
+) -> ((value, out_credit): (Vec<bool>, Tracked<MultCreditResource>))
     requires
         epsilon > 0,
         big_n > 0,
@@ -44,9 +44,9 @@ pub fn sparse_vector(
         credit.view() =~= (MultCreditCarrier::Value { car: eps_budget }),
         eps_budget >= (epsilon as real),
     ensures
-        ret.0.len() <= q.len(),
+        value.len() <= q.len(),
         exists |r: real|
-            ret.1@.view() =~= (MultCreditCarrier::Value { car: r })
+            out_credit@.view() =~= (MultCreditCarrier::Value { car: r })
             && r >= eps_budget - (epsilon as real),
 {
     let mut out: Vec<bool> = Vec::new();

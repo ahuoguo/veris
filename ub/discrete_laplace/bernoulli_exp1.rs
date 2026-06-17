@@ -590,7 +590,7 @@ pub fn sample_bernoulli_exp1(
     Ghost(e): Ghost<spec_fn(bool) -> real>,
     Tracked(input_credit): Tracked<ErrorCreditResource>,
     Ghost(eps): Ghost<real>,
-) -> (ret: (bool, Tracked<ErrorCreditResource>))
+) -> ((value, out_credit): (bool, Tracked<ErrorCreditResource>))
     requires
         numer_x > 0,
         denom_x > 0,
@@ -601,7 +601,7 @@ pub fn sample_bernoulli_exp1(
         input_credit.view() =~= (ErrorCreditCarrier::Value { car: eps }),
         eps >= bernoulli_weighted_sum(exp(-(numer_x as real / denom_x as real)), e),
     ensures
-        ret.1@.view() =~= (ErrorCreditCarrier::Value { car: e(ret.0) }),
+        out_credit@.view() =~= (ErrorCreditCarrier::Value { car: e(value) }),
 {
     let ghost x = numer_x as real / denom_x as real;
 
@@ -770,7 +770,7 @@ pub fn sample_bernoulli_exp1_ubig(
     Ghost(e): Ghost<spec_fn(bool) -> real>,
     Tracked(input_credit): Tracked<ErrorCreditResource>,
     Ghost(eps): Ghost<real>,
-) -> (ret: (bool, Tracked<ErrorCreditResource>))
+) -> ((value, out_credit): (bool, Tracked<ErrorCreditResource>))
     requires
         ubig_view(numer) > 0,
         ubig_view(denom) > 0,
@@ -781,7 +781,7 @@ pub fn sample_bernoulli_exp1_ubig(
         input_credit.view() =~= (ErrorCreditCarrier::Value { car: eps }),
         eps >= bernoulli_weighted_sum(exp(-(ubig_view(numer) as real / ubig_view(denom) as real)), e),
     ensures
-        ret.1@.view() =~= (ErrorCreditCarrier::Value { car: e(ret.0) }),
+        out_credit@.view() =~= (ErrorCreditCarrier::Value { car: e(value) }),
 {
     let ghost nv = ubig_view(numer);
     let ghost dv = ubig_view(denom);

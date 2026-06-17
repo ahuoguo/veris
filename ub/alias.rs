@@ -261,15 +261,15 @@ pub fn sample_alias(
     Ghost(e): Ghost<spec_fn(real) -> real>,
     Tracked(credit): Tracked<ErrorCreditResource>,
     Ghost(eps): Ghost<real>,
-) -> (ret: (u64, Tracked<ErrorCreditResource>))
+) -> ((value, out_credit): (u64, Tracked<ErrorCreditResource>))
     requires
         tab.wf(),
         forall |x: real| (#[trigger] e(x)) >= 0real,
         eps >= alias_exp(tab.view(), e),
         credit.view() =~= (ErrorCreditCarrier::Value { car: eps }),
     ensures
-        ret.0 < tab.n,
-        ret.1@.view() =~= (ErrorCreditCarrier::Value { car: e(ret.0 as real) }),
+        value < tab.n,
+        out_credit@.view() =~= (ErrorCreditCarrier::Value { car: e(value as real) }),
 {
     let ghost t = tab.view();
     let ghost oa = oalloc(t, e);
@@ -608,14 +608,14 @@ pub fn sample_748_alias(
     Ghost(e): Ghost<spec_fn(real) -> real>,
     Tracked(input_credit): Tracked<ErrorCreditResource>,
     Ghost(eps): Ghost<real>,
-) -> (ret: (u64, Tracked<ErrorCreditResource>))
+) -> ((value, out_credit): (u64, Tracked<ErrorCreditResource>))
     requires
         forall |x: real| (#[trigger] e(x)) >= 0real,
         eps >= (7real * e(0real) + 4real * e(1real) + 8real * e(2real)) / 19real,
         input_credit.view() =~= (ErrorCreditCarrier::Value { car: eps }),
     ensures
-        ret.0 < 3,
-        ret.1@.view() =~= (ErrorCreditCarrier::Value { car: e(ret.0 as real) }),
+        value < 3,
+        out_credit@.view() =~= (ErrorCreditCarrier::Value { car: e(value as real) }),
 {
     let mut w: Vec<u64> = Vec::new();
     w.push(7); w.push(4); w.push(8);

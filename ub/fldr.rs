@@ -490,15 +490,15 @@ pub fn sample_fldr(
     Ghost(e): Ghost<spec_fn(real) -> real>,
     Tracked(input_credit): Tracked<ErrorCreditResource>,
     Ghost(eps): Ghost<real>,
-) -> (ret: (u64, Tracked<ErrorCreditResource>))
+) -> ((value, out_credit): (u64, Tracked<ErrorCreditResource>))
     requires
         tab.wf(),
         forall |x: real| (#[trigger] e(x)) >= 0real,
         eps >= fldr_exp(tab.view(), e),
         input_credit.view() =~= (ErrorCreditCarrier::Value { car: eps }),
     ensures
-        ret.0 < tab.n,
-        ret.1@.view() =~= (ErrorCreditCarrier::Value { car: e(ret.0 as real) }),
+        value < tab.n,
+        out_credit@.view() =~= (ErrorCreditCarrier::Value { car: e(value as real) }),
 {
     let ghost t = tab.view();
     proof { lemma_fldr_exp_nonneg(t, e); }       // ⇒ eps ≥ 0, for ec_combine below
@@ -977,14 +977,14 @@ pub fn sample_748(
     Ghost(e): Ghost<spec_fn(real) -> real>,
     Tracked(input_credit): Tracked<ErrorCreditResource>,
     Ghost(eps): Ghost<real>,
-) -> (ret: (u64, Tracked<ErrorCreditResource>))
+) -> ((value, out_credit): (u64, Tracked<ErrorCreditResource>))
     requires
         forall |x: real| (#[trigger] e(x)) >= 0real,
         eps >= (7real * e(0real) + 4real * e(1real) + 8real * e(2real)) / 19real,
         input_credit.view() =~= (ErrorCreditCarrier::Value { car: eps }),
     ensures
-        ret.0 < 3,
-        ret.1@.view() =~= (ErrorCreditCarrier::Value { car: e(ret.0 as real) }),
+        value < 3,
+        out_credit@.view() =~= (ErrorCreditCarrier::Value { car: e(value as real) }),
 {
     let mut w: Vec<u64> = Vec::new();
     w.push(7);

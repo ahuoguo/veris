@@ -128,7 +128,7 @@ pub fn sample_bernoulli_rational(
     Ghost(e): Ghost<spec_fn(bool) -> real>,
     Tracked(input_credit): Tracked<ErrorCreditResource>,
     Ghost(eps): Ghost<real>,
-) -> (ret: (bool, Tracked<ErrorCreditResource>))
+) -> ((value, out_credit): (bool, Tracked<ErrorCreditResource>))
     requires
         ubig_view(denom) > 0,
         ubig_view(numer) <= ubig_view(denom),
@@ -138,7 +138,7 @@ pub fn sample_bernoulli_rational(
         input_credit.view() =~= (ErrorCreditCarrier::Value { car: eps }),
         eps >= bernoulli_weighted_sum(ubig_view(numer) as real / ubig_view(denom) as real, e),
     ensures
-        ret.1@.view() =~= (ErrorCreditCarrier::Value { car: e(ret.0) }),
+        out_credit@.view() =~= (ErrorCreditCarrier::Value { car: e(value) }),
 {
     let ghost nn = ubig_view(numer);
     let ghost dn = ubig_view(denom);

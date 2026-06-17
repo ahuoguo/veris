@@ -117,10 +117,10 @@ pub struct ExRBig(RBig);
 pub uninterp spec fn rbig_view(r: &RBig) -> real;
 
 /// Reduced parts:  rbig_view(r) = numer / denom,  denom > 0.
-pub assume_specification[ random::rbig_into_parts ](r: &RBig) -> (ret: (IBig, UBig))
+pub assume_specification[ random::rbig_into_parts ](r: &RBig) -> ((numer, denom): (IBig, UBig))
     ensures
-        ubig_view(&ret.1) > 0,
-        rbig_view(r) == ibig_view(&ret.0) as real / ubig_view(&ret.1) as real;
+        ubig_view(&denom) > 0,
+        rbig_view(r) == ibig_view(&numer) as real / ubig_view(&denom) as real;
 
 pub assume_specification[ random::rbig_from_parts ](numer: IBig, denom: UBig) -> (ret: RBig)
     requires ubig_view(&denom) > 0,

@@ -513,7 +513,7 @@ pub fn sample_exp_rejection(
     Ghost(e): Ghost<spec_fn(nat) -> real>,
     Tracked(input_credit): Tracked<ErrorCreditResource>,
     Ghost(eps_avg): Ghost<real>,
-) -> (ret: (UBig, Tracked<ErrorCreditResource>))
+) -> ((value, out_credit): (UBig, Tracked<ErrorCreditResource>))
     requires
         ubig_view(denom) > 0,
         forall |u: nat| (#[trigger] e(u)) >= 0real,
@@ -521,8 +521,8 @@ pub fn sample_exp_rejection(
         input_credit.view() =~= (ErrorCreditCarrier::Value { car: eps_avg }),
         eps_avg >= rej_weighted_avg(ubig_view(denom), e),
     ensures
-        ubig_view(&ret.0) < ubig_view(denom),
-        ret.1@.view() =~= (ErrorCreditCarrier::Value { car: e(ubig_view(&ret.0)) }),
+        ubig_view(&value) < ubig_view(denom),
+        out_credit@.view() =~= (ErrorCreditCarrier::Value { car: e(ubig_view(&value)) }),
 {
     let ghost d = ubig_view(denom);
 

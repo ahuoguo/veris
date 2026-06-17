@@ -147,7 +147,7 @@ impl NumD {
         Ghost(d_bound): Ghost<int>,
         Ghost(eps_in): Ghost<real>,
         Tracked(input_credit): Tracked<MultCreditResource>,
-    ) -> (ret: (NumD, Tracked<MultCreditResource>))
+    ) -> ((value, out_credit): (NumD, Tracked<MultCreditResource>))
         requires
             scale_num > 0,
             scale_den > 0,
@@ -156,10 +156,10 @@ impl NumD {
             input_credit.view() =~= (MultCreditCarrier::Value { car: eps_in }),
             eps_in >= (d_bound as real) * (scale_den as real) / (scale_num as real),
         ensures
-            ret.0.dist() == d_chooser(ret.0.val()),
-            ret.1@.view() =~= (MultCreditCarrier::Value {
+            value.dist() == d_chooser(value.val()),
+            out_credit@.view() =~= (MultCreditCarrier::Value {
                 car: eps_in
-                    - (abs_int(d_chooser(ret.0.val())) as real)
+                    - (abs_int(d_chooser(value.val())) as real)
                         * (scale_den as real) / (scale_num as real),
             }),
     {
@@ -171,6 +171,99 @@ impl NumD {
         (NumD { v, d: Ghost(d) }, Tracked::assume_new())
     }
 
+    // /// LightDP T-LAPLACE-LIST (joint coupling for `n` independent Laplaces).
+    // ///
+    // /// Samples `n` i.i.d. discrete-Laplace draws at scale `scale_den/scale_num`,
+    // /// then assigns each draw a ghost distance via a JOINT chooser
+    // /// `d_chooser : Seq<int> → Seq<int>` that depends on the full sample.
+    // /// The Clutch-DP coupling for a list pays
+    // ///
+    // ///     max_i |d_chooser(v)[i]|  ·  scale_den / scale_num
+    // ///
+    // /// in credits — i.e. cost is governed by the *largest* per-index
+    // /// distance, NOT their sum. This is the key amplification used by
+    // /// Report Noisy Max (a single coupling event over the joint sample
+    // /// allows a constant max-distance regardless of `n`).
+    // ///
+    // /// Caller supplies a uniform upper bound `d_bound` on |d_chooser(v)[i]|
+    // /// for the pre-call reservation; any unused slack is refunded post-sample.
+    // ///
+    // /// TRUSTED AXIOM.
+    // #[verus::trusted]
+    // #[verifier::external_body]
+    // pub fn laplace_list(
+    //     n: u64,
+    //     scale_num: u64,
+    //     scale_den: u64,
+    //     Ghost(d_chooser): Ghost<spec_fn(Seq<int>) -> Seq<int>>,
+    //     Ghost(d_bound): Ghost<int>,
+    //     Ghost(eps_in): Ghost<real>,
+    //     Tracked(input_credit): Tracked<MultCreditResource>,
+    // ) -> ((value, out_credit): (Vec<NumD>, Tracked<MultCreditResource>))
+    //     requires
+    //         scale_num > 0,
+    //         scale_den > 0,
+    //         d_bound >= 0,
+    //         forall |xs: Seq<int>| xs.len() == n as int ==> {
+    //             let ds = #[trigger] d_chooser(xs);
+    //             ds.len() == n as int
+    //             && (forall |i: int| 0 <= i < n as int ==>
+    //                    abs_int(ds[i]) <= d_bound)
+    //         },
+    //         input_credit.view() =~= (MultCreditCarrier::Value { car: eps_in }),
+    //         eps_in >= (d_bound as real) * (scale_den as real) / (scale_num as real),
+    //     ensures
+    //         value.len() == n as int,
+    //         // The dist of the i-th NumD equals d_chooser(world-1 vals)[i].
+    //         ({
+    //             let vs = Seq::<int>::new(n as nat,
+    //                 |i: int| if 0 <= i < n as int { value@[i].val() } else { 0int });
+    //             let ds = d_chooser(vs);
+    //             forall |i: int| 0 <= i < n as int ==>
+    //                 (#[trigger] value@[i]).dist() == ds[i]
+    //         }),
+    //         // Credit residual: pre − cost, where cost ≤ d_bound·rate.
+    //         // We don't try to expose the precise refund (only the worst-case
+    //         // reservation deduction) — that's enough for RNM, which uses a
+    //         // tight |d|=d_bound = 2 anyway.
+    //         out_credit@.view() =~= (MultCreditCarrier::Value {
+    //             car: eps_in - (d_bound as real)
+    //                           * (scale_den as real) / (scale_num as real),
+    //         }),
+    // {
+    //     // Untrusted body: sample n laplaces, build vector. Distances are
+    //     // ghost-assigned by the spec.
+    //     let mut out: Vec<NumD> = Vec::new();
+    //     let mut i: u64 = 0;
+    //     while i < n
+    //         invariant out.len() == i as int, i <= n,
+    //         decreases n - i,
+    //     {
+    //         let v = crate::discrete_laplace::discrete_laplace::sample_discrete_laplace_entry(
+    //             scale_num,
+    //             scale_den,
+    //         );
+    //         out.push(NumD { v, d: Ghost(0int) });
+    //         i = i + 1;
+    //     }
+    //     (out, Tracked::assume_new())
+    // }
+
+    // /// World-1 strict less-than comparison. Returns the ordering in world 1.
+    // ///
+    // /// SOUNDNESS NOTE. By itself this is privacy-leaking (it exposes
+    // /// raw world-1 numeric values rather than a coupled-aligned bool).
+    // /// Its safe use sits *inside* a privacy proof that has already
+    // /// chosen distances aligning the comparison's outcome — e.g. the
+    // /// argmax loop in Report Noisy Max, where the laplace_list distances
+    // /// guarantee the same argmax in both worlds. This method is
+    // /// trusted for that purpose.
+    // #[verus::trusted]
+    // pub fn lt_world1(&self, other: &NumD) -> (r: bool)
+    //     ensures r == (self.val() < other.val()),
+    // {
+    //     ibig_lt(&self.v, &other.v)
+    // }
 }
 
 } // verus!

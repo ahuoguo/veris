@@ -1439,7 +1439,7 @@ pub fn sample_geometric_exp_fast(
     Ghost(e): Ghost<spec_fn(nat) -> real>,
     Tracked(input_credit): Tracked<ErrorCreditResource>,
     Ghost(dist_bound): Ghost<real>,
-) -> (ret: (UBig, Tracked<ErrorCreditResource>))
+) -> ((value, out_credit): (UBig, Tracked<ErrorCreditResource>))
     requires
         ubig_view(numer_x) > 0, ubig_view(denom_x) > 0,
         0real < p < 1real,
@@ -1449,7 +1449,7 @@ pub fn sample_geometric_exp_fast(
         input_credit.view() =~= (ErrorCreditCarrier::Value { car: dist_bound }),
         geo_exp_series_bounded_by(p, e, dist_bound),
     ensures
-        ret.1@.view() =~= (ErrorCreditCarrier::Value { car: e(ubig_view(&ret.0)) }),
+        out_credit@.view() =~= (ErrorCreditCarrier::Value { car: e(ubig_view(&value)) }),
 {
     let ghost nx = ubig_view(numer_x);
     let ghost dx = ubig_view(denom_x);

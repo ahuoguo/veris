@@ -36,7 +36,7 @@ pub fn num_sparse_vector(
     q: &Vec<NumD>,
     Tracked(credit): Tracked<MultCreditResource>,
     Ghost(eps_budget): Ghost<real>,
-) -> (ret: (Vec<NumD>, Tracked<MultCreditResource>))
+) -> ((value, out_credit): (Vec<NumD>, Tracked<MultCreditResource>))
     requires
         epsilon > 0,
         big_n > 0,
@@ -48,13 +48,13 @@ pub fn num_sparse_vector(
         // LightDP Fig. 11: total budget ε.
         eps_budget >= (epsilon as real),
     ensures
-        ret.0.len() <= q.len(),
+        value.len() <= q.len(),
         // Privacy: every released value has distance 0 (LightDP `num(0)`).
-        forall |k: int| 0 <= k < ret.0.len() as int ==>
-            (#[trigger] ret.0@[k].dist()) == 0int,
+        forall |k: int| 0 <= k < value.len() as int ==>
+            (#[trigger] value@[k].dist()) == 0int,
         // Total DP cost ≤ ε.
         exists |r: real|
-            ret.1@.view() =~= (MultCreditCarrier::Value { car: r })
+            out_credit@.view() =~= (MultCreditCarrier::Value { car: r })
             && r >= eps_budget - (epsilon as real),
 {
     let mut out: Vec<NumD> = Vec::new();

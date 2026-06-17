@@ -670,7 +670,7 @@ pub fn sample_fdr(
     Ghost(e): Ghost<spec_fn(real) -> real>,
     Tracked(input_credit): Tracked<ErrorCreditResource>,
     Ghost(eps): Ghost<real>,
-) -> (ret: (u64, Tracked<ErrorCreditResource>))
+) -> ((value, out_credit): (u64, Tracked<ErrorCreditResource>))
     requires
         n > 1,
         n <= u64::MAX / 2,
@@ -678,8 +678,8 @@ pub fn sample_fdr(
         eps >= average_nat(n as nat, e),
         input_credit.view() =~= (ErrorCreditCarrier::Value { car: eps }),
     ensures
-        ret.0 < n,
-        ret.1@.view() =~= (ErrorCreditCarrier::Value { car: e(ret.0 as real) }),
+        value < n,
+        out_credit@.view() =~= (ErrorCreditCarrier::Value { car: e(value as real) }),
 {
     // Thin-air room for the termination credit, and a depth with fail(1,0,depth) < s0.
     proof { lemma_fdr_average_nonneg(n as nat, e); }   // average_nat ≥ 0, hence eps ≥ 0

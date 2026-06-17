@@ -59,7 +59,7 @@ pub fn bounded_geo_dist(
     Ghost(depth): Ghost<nat>,
     Ghost(eps): Ghost<real>,
     Ghost(slack): Ghost<real>,
-) -> (ret: (UBig, Tracked<ErrorCreditResource>))
+) -> ((value, out_credit): (UBig, Tracked<ErrorCreditResource>))
     requires
         forall |i: nat| (#[trigger] e(i)) >= 0real,
         eps > 0real,
@@ -68,7 +68,7 @@ pub fn bounded_geo_dist(
         geo_series_bounded_by(e, eps - slack),
         slack * pow(2real, depth) >= 1real,
     ensures
-        ret.1@.view() =~= (ErrorCreditCarrier::Value { car: e(ubig_view(&ret.0)) }),
+        out_credit@.view() =~= (ErrorCreditCarrier::Value { car: e(ubig_view(&value)) }),
     decreases depth,
 {
     proof {
@@ -124,14 +124,14 @@ pub fn unbounded_geo_dist(
     Ghost(e): Ghost<spec_fn(nat) -> real>,
     Tracked(input_credit): Tracked<ErrorCreditResource>,
     Ghost(dist_bound): Ghost<real>,
-) -> (ret: (UBig, Tracked<ErrorCreditResource>))
+) -> ((value, out_credit): (UBig, Tracked<ErrorCreditResource>))
     requires
         forall |i: nat| (#[trigger] e(i)) >= 0real,
         dist_bound >= 0real,
         input_credit.view() =~= (ErrorCreditCarrier::Value { car: dist_bound }),
         geo_series_bounded_by(e, dist_bound),
     ensures
-        ret.1@.view() =~= (ErrorCreditCarrier::Value { car: e(ubig_view(&ret.0)) }),
+        out_credit@.view() =~= (ErrorCreditCarrier::Value { car: e(ubig_view(&value)) }),
 {
     let Tracked(slack_credit) = thin_air();
 

@@ -81,7 +81,7 @@ pub fn smart_sum(
     q: &Vec<NumD>,
     Tracked(credit): Tracked<MultCreditResource>,
     Ghost(eps_budget): Ghost<real>,
-) -> (ret: (Vec<NumD>, Tracked<MultCreditResource>))
+) -> ((value, out_credit): (Vec<NumD>, Tracked<MultCreditResource>))
     requires
         epsilon > 0,
         big_m > 0,
@@ -93,13 +93,13 @@ pub fn smart_sum(
         credit.view() =~= (MultCreditCarrier::Value { car: eps_budget }),
         eps_budget >= 2real * (epsilon as real),
     ensures
-        ret.0.len() == q.len(),
+        value.len() == q.len(),
         // Privacy: every released value has distance 0.
-        forall |k: int| 0 <= k < ret.0.len() as int ==>
-            (#[trigger] ret.0@[k].dist()) == 0int,
+        forall |k: int| 0 <= k < value.len() as int ==>
+            (#[trigger] value@[k].dist()) == 0int,
         // Budget: total credits spent ≤ 2·ε.
         exists |r: real|
-            ret.1@.view() =~= (MultCreditCarrier::Value { car: r })
+            out_credit@.view() =~= (MultCreditCarrier::Value { car: r })
             && r >= eps_budget - 2real * (epsilon as real),
 {
     // Extract the differing index from the existential precondition.

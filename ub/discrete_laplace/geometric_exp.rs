@@ -187,7 +187,7 @@ pub fn sample_geometric_exp(
     Ghost(e): Ghost<spec_fn(nat) -> real>,
     Tracked(input_credit): Tracked<ErrorCreditResource>,
     Ghost(dist_bound): Ghost<real>,
-) -> (ret: (UBig, Tracked<ErrorCreditResource>))
+) -> ((value, out_credit): (UBig, Tracked<ErrorCreditResource>))
     requires
         denom_x > 0,
         0real < p < 1real,
@@ -197,7 +197,7 @@ pub fn sample_geometric_exp(
         input_credit.view() =~= (ErrorCreditCarrier::Value { car: dist_bound }),
         geo_exp_series_bounded_by(p, e, dist_bound),
     ensures
-        ret.1@.view() =~= (ErrorCreditCarrier::Value { car: e(ubig_view(&ret.0)) }),
+        out_credit@.view() =~= (ErrorCreditCarrier::Value { car: e(ubig_view(&value)) }),
 {
     // Obtain slack credit and depth bound for termination
     let Tracked(slack_credit) = thin_air();

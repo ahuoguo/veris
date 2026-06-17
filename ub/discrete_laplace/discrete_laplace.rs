@@ -402,7 +402,7 @@ pub fn sample_discrete_laplace(
     Ghost(e): Ghost<spec_fn(int) -> real>,
     Tracked(input_credit): Tracked<ErrorCreditResource>,
     Ghost(eps): Ghost<real>,
-) -> (ret: (IBig, Tracked<ErrorCreditResource>))
+) -> ((value, out_credit): (IBig, Tracked<ErrorCreditResource>))
     requires
         inv_numer > 0,
         inv_denom > 0,
@@ -413,7 +413,7 @@ pub fn sample_discrete_laplace(
         input_credit.view() =~= (ErrorCreditCarrier::Value { car: eps }),
         dl_series_bounded_by(p, e, eps),
     ensures
-        ret.1@.view() =~= (ErrorCreditCarrier::Value { car: e(ibig_view(&ret.0)) }),
+        out_credit@.view() =~= (ErrorCreditCarrier::Value { car: e(ibig_view(&value)) }),
 {
     // Get slack for termination
     let Tracked(slack_credit) = thin_air();
@@ -603,7 +603,7 @@ pub fn sample_discrete_laplace_fast(
     Ghost(e): Ghost<spec_fn(int) -> real>,
     Tracked(input_credit): Tracked<ErrorCreditResource>,
     Ghost(eps): Ghost<real>,
-) -> (ret: (IBig, Tracked<ErrorCreditResource>))
+) -> ((value, out_credit): (IBig, Tracked<ErrorCreditResource>))
     requires
         rbig_view(scale) > 0real,
         0real < p < 1real,
@@ -613,7 +613,7 @@ pub fn sample_discrete_laplace_fast(
         input_credit.view() =~= (ErrorCreditCarrier::Value { car: eps }),
         dl_series_bounded_by(p, e, eps),
     ensures
-        ret.1@.view() =~= (ErrorCreditCarrier::Value { car: e(ibig_view(&ret.0)) }),
+        out_credit@.view() =~= (ErrorCreditCarrier::Value { car: e(ibig_view(&value)) }),
 {
     // scale = sn/sd (sn ≥ 1 since scale > 0, sd ≥ 1); 1/scale = sd/sn.
     let parts = rbig_into_parts(scale);
