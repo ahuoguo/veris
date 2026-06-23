@@ -54,6 +54,9 @@ jobs:
             https://github.com/verus-lang/verus verus-src
           cp -r verus-src/source/verusdoc verusdoc-standalone
           sed -i '/^\[lints\]/,$d' verusdoc-standalone/Cargo.toml
+          # It lives inside this repo's workspace dir, so make it its own
+          # workspace root rather than a member of the veris workspace.
+          printf '\n[workspace]\n' >> verusdoc-standalone/Cargo.toml
           cargo +1.95.0 build --release \
             --manifest-path verusdoc-standalone/Cargo.toml
 
