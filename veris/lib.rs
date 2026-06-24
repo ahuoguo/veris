@@ -10,6 +10,7 @@ pub mod ho_rej_samp;
 pub mod cks;
 pub mod random_walk;
 pub mod fdr;
+pub mod spline;
 pub mod fldr;
 pub mod fldr_helper;
 pub mod alias;
