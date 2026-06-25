@@ -1,15 +1,15 @@
-// Sample from Bernoulli(p) for rational p = numer/denom.
-//
-// Implemented via: sample u ~ Uniform([0, denom)), return (numer > u).
-// This gives P[true] = numer/denom = p exactly.
-//
-// We prove the following Expectation Preservation Rule
-//
-//   ε ≥ p · ℰ(true) + (1 - p) · ℰ(false)
-//   ----------------------------------------
-//   [{ ↯(ε) }] sample_bernoulli_rational(numer, denom) [{ v. ↯(ℰ(v)) }]
-//
-// See opendp correspondence in `sample_bernoulli_rational` in opendp/rust/src/traits/samplers/bernoulli/mod.rs.
+//! Sample from Bernoulli(p) for rational p = numer/denom.
+//!
+//! Implemented via: sample u ~ Uniform([0, denom)), return (numer > u).
+//! This gives P[true] = numer/denom = p exactly.
+//!
+//! We prove the following Expectation Preservation Rule
+//!
+//!   ε ≥ p · ℰ(true) + (1 - p) · ℰ(false)
+//!   ----------------------------------------
+//!   [{ ↯(ε) }] sample_bernoulli_rational(numer, denom) [{ v. ↯(ℰ(v)) }]
+//!
+//! See opendp correspondence in `sample_bernoulli_rational` in opendp/rust/src/traits/samplers/bernoulli/mod.rs.
 
 use vstd::prelude::*;
 

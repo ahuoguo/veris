@@ -1,21 +1,21 @@
-// Sample from Bernoulli(exp(-x)) for x ∈ (0, 1].
-//
-//   Loop k = 1, 2, ...: flip Bernoulli(x/k).
-//     Heads → increment k.  Tails → return (k is odd).
-//
-// We prove the following Expectation Preservation Rule
-//
-//   ε ≥ exp(-x) · ℰ(true) + (1 - exp(-x)) · ℰ(false)
-//   ---------------------------------------------------
-//   [{ ↯(ε) }] sample_bernoulli_exp1(x) [{ v. ↯(ℰ(v)) }]
-//
-// At step k, flip Bernoulli(x/k) via sample_bernoulli_rational.
-//   tails (stop):     credit e(k%2==1)
-//   heads (continue): credit new_eps = amp·eps - (amp-1)·e(k%2==1)
-// where amp = k·denom_x/numer_x = k/x.
-//
-// Slack amplifies by factor amp ≥ 1 at each step.
-// Termination: slack · Π amp_j ≥ 1, tracked via slack_product.
+//! Sample from Bernoulli(exp(-x)) for x ∈ (0, 1].
+//!
+//!   Loop k = 1, 2, ...: flip Bernoulli(x/k).
+//!     Heads → increment k.  Tails → return (k is odd).
+//!
+//! We prove the following Expectation Preservation Rule
+//!
+//!   ε ≥ exp(-x) · ℰ(true) + (1 - exp(-x)) · ℰ(false)
+//!   ---------------------------------------------------
+//!   [{ ↯(ε) }] sample_bernoulli_exp1(x) [{ v. ↯(ℰ(v)) }]
+//!
+//! At step k, flip Bernoulli(x/k) via sample_bernoulli_rational.
+//!   tails (stop):     credit e(k%2==1)
+//!   heads (continue): credit new_eps = amp·eps - (amp-1)·e(k%2==1)
+//! where amp = k·denom_x/numer_x = k/x.
+//!
+//! Slack amplifies by factor amp ≥ 1 at each step.
+//! Termination: slack · Π amp_j ≥ 1, tracked via slack_product.
 
 use vstd::prelude::*;
 use random::{ubig_from_u64, ubig_succ, ubig_mul_u64, ubig_mul, ubig_is_odd, UBig};

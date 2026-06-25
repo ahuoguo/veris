@@ -1,4 +1,4 @@
-//! # Geometric Distribution with BigNums and Distributional Spec
+//! Geometric Distribution with BigNums and Distributional Spec.
 //!
 //! This extends geo.rs with:
 //! 1. dashu UBig for unbounded output (geo.rs uses u64 with wrapping_add)

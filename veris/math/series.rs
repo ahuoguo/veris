@@ -1,7 +1,7 @@
-/// Real Analysis: Limits, Sequences, and Series
-///
-/// Partly follows the structure of Dafny-VMC's Math/Analysis library:
-///   https://github.com/dafny-lang/Dafny-VMC/tree/main/src/Math/Analysis
+//! Real Analysis: Limits, Sequences, and Series
+//!
+//! Partly follows the structure of Dafny-VMC's Math/Analysis library:
+//!   https://github.com/dafny-lang/Dafny-VMC/tree/main/src/Math/Analysis
 
 use vstd::prelude::*;
 

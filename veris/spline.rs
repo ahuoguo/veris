@@ -1,5 +1,5 @@
-//! # The Escaping Spline
-//! 
+//! The Escaping Spline — an almost-sure-termination example from the ICFP'24 paper.
+//!
 //! ```
 //! rec spline n = let x = rand (n + 1) in if x = 0 then () else spline (n+1)
 //! ```

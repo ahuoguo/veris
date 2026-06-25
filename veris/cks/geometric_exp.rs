@@ -1,13 +1,13 @@
-// Sample from Geometric(1 - exp(-x)) for x > 0.
-//
-// Loop: flip Bernoulli(exp(-x)). If true, increment k. If false, return k.
-// Output k has P[k] = p^k · (1 - p) where p = exp(-x).
-//
-// We prove the following Expectation Preservation Rule
-//
-//   ε ≥ Σ_{k=0}^∞ p^k · (1 - p) · ℰ(k)
-//   -------------------------------------------------
-//   [{ ↯(ε) }] sample_geometric_exp(x) [{ v. ↯(ℰ(v)) }]
+//! Sample from Geometric(1 - exp(-x)) for x > 0.
+//!
+//! Loop: flip Bernoulli(exp(-x)). If true, increment k. If false, return k.
+//! Output k has P[k] = p^k · (1 - p) where p = exp(-x).
+//!
+//! We prove the following Expectation Preservation Rule
+//!
+//!   ε ≥ Σ_{k=0}^∞ p^k · (1 - p) · ℰ(k)
+//!   -------------------------------------------------
+//!   [{ ↯(ε) }] sample_geometric_exp(x) [{ v. ↯(ℰ(v)) }]
 
 use vstd::prelude::*;
 

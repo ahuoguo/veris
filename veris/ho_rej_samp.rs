@@ -1,7 +1,8 @@
-//! TODO: i might split this to 2 files... to move the instantiation out of the generic code
+//! Higher Order Rejection Sampler.
 //!
-//! Higher Order Rejection Sampler
-//! https://logsem.github.io/clutch/clutch.eris.examples.approximate_samplers.approx_higherorder_rejection_sampler.html
+//! <https://logsem.github.io/clutch/clutch.eris.examples.approximate_samplers.approx_higherorder_rejection_sampler.html>
+//!
+//! TODO: might split this into 2 files, to move the instantiation out of the generic code.
 //!
 //! A sampling scheme is parameterized by:
 //! - `sampler`: A sampling function that generates candidate values

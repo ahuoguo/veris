@@ -1,5 +1,5 @@
-//! # Alias Method — sample outcome i ∈ {0,…,n−1} with probability aᵢ/m (m = Σ aᵢ),
-//! # in O(1) per sample, using two uniform draws.  Exact / integer version (no floats)
+//! Alias Method — sample outcome i ∈ {0,…,n−1} with probability aᵢ/m (m = Σ aᵢ) in
+//! O(1) per sample, using two uniform draws. Exact / integer version (no floats).
 //!
 //! References:
 //!   - Walker 1977, Vose 1991
@@ -27,9 +27,11 @@
 //! `valid_alias` condition `label_units(t, n, k) == n·weights(k)`
 //!
 //! ## Expectation-Preservation Rule
+//! ```text
 //!            ε ≥ Σ_{i<n} (aᵢ/m)·ℰ(i)
 //!   ────────────────────────────────────────────────
 //!   [{ ↯(ε) }] sample_alias(tab) [{ i. ↯(ℰ(i)) }]
+//! ```
 //!
 //! The two uniform draws nest.  The OUTER bin draw is funded with `inner_eps(i)` = bin_credit(i)/m
 //! =  1/m · (prob[i]·ℰ(i) + (m−prob[i])·ℰ(alias[i])) — which is the average the INNER threshold draw

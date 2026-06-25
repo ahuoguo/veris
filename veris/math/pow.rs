@@ -1,9 +1,9 @@
-// Exponential growth: pow, Bernoulli's inequality, Archimedean properties.
-//
-// Main result: for any eps > 0 and base > 1, there exists k such that
-// eps * base^k >= 1. This is the key lemma that lets bounded samplers
-// recurse: each rejection amplifies the error credit, and after enough
-// amplifications we reach a contradiction (credit >= 1 is impossible).
+//! Exponential growth: pow, Bernoulli's inequality, Archimedean properties.
+//!
+//! Main result: for any eps > 0 and base > 1, there exists k such that
+//! eps * base^k >= 1. This is the key lemma that lets bounded samplers
+//! recurse: each rejection amplifies the error credit, and after enough
+//! amplifications we reach a contradiction (credit >= 1 is impossible).
 use vstd::prelude::*;
 
 verus! {

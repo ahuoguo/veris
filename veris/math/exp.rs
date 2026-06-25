@@ -1,12 +1,12 @@
-// Axiomatization of the exponential function exp(x) = e^x.
-//
-// We define exp as an uninterpreted function and axiomatize the properties
-// needed for the CKS20 discrete Laplace sampler proofs:
-//
-//   1. exp(0) = 1
-//   2. exp(-x) ∈ [0, 1] for x ≥ 0
-//   3. exp(-(a+b)) = exp(-a) · exp(-b)  (multiplicativity)
-//   4. Alternating series bounds on partial sums of exp(-x) = Σ (-x)^k/k!.
+//! Axiomatization of the exponential function exp(x) = e^x.
+//!
+//! We define exp as an uninterpreted function and axiomatize the properties
+//! needed for the CKS20 discrete Laplace sampler proofs:
+//!
+//!   1. exp(0) = 1
+//!   2. exp(-x) ∈ [0, 1] for x ≥ 0
+//!   3. exp(-(a+b)) = exp(-a) · exp(-b)  (multiplicativity)
+//!   4. Alternating series bounds on partial sums of exp(-x) = Σ (-x)^k/k!.
 
 use vstd::prelude::*;
 

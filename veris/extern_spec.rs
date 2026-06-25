@@ -1,4 +1,4 @@
-//! # External type specifications and assumed specifications for third-party libraries.
+//! External type specifications and assumed specifications for third-party libraries.
 //!
 //! All external_type_specification, assume_specification, and external_body
 //! wrappers for types/functions from bignum crate

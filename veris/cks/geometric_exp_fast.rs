@@ -1,114 +1,116 @@
-// Fast sampler for Geometric(1 − e^{−n/d}) (CKS20).
-//
-// Algorithm:
-//
-//   u ← sample_exp_rejection(d)        // u ~ rejection_dist(d)
-//   v ← sample_geometric_exp(1, 1)     // v ~ Geometric(1 − e^{−1})
-//   z ← u + d · v
-//   return z / n                       // floor division
-//
-// Distribution claim:  result ~ Geometric(1 − e^{−n/d}),  with PMF
-//
-//   outer_geom_pmf(r) = (e^{−n/d})^r · (1 − e^{−n/d}).
-//
-// Hoare rule we prove:
-//
-//   ε ≥ Σ_{r=0}^∞ outer_geom_pmf(r) · F(r)
-//   ─────────────────────────────────────────────────────
-//   [{ ↯(ε) }] sample_geometric_exp_fast(n/d) [{ r. ↯(F(r)) }]
-//
-// ─────────────────────────────────────────────────────────────────────────────
-//  EQUATIONAL DERIVATION (the chain of identities the proof mirrors)
-//
-//  Equations are labeled E1 … E6 (top-of-chain = E6).  See the
-//  "EQUATION ↔ PROOF FUNCTION" block below for the mapping from each step
-//  to the Verus lemma that discharges it.
-// ─────────────────────────────────────────────────────────────────────────────
-//
-// Let
-//      N       := Σ_{u=0}^{d−1} e^{−u/d}                            [rej_norm_const]
-//                  (normalizer of rejection_dist on {0..d−1};
-//                   closed form: N = (1 − e^{−1})/(1 − e^{−1/d}),
-//                   discharged by `lemma_norm_const_identity`)
-//      g(u, v) := F((u + d·v) / n)                                  [g spec_fn]
-//      f(u)    := lim_{m→∞} Σ_{v<m} inner_geom_summand(v) · g(u, v) [f spec_fn]
-//      inner_geom_summand(v) := (e^{−1})^v · (1 − e^{−1})
-//
-// I.e. f(u) is the expected value of g(u, ·) under v ~ Geom(1 − e^{−1});
-// the inner Geom partial sums converge to f(u) (`lemma_f_is_limit`).
-//
-// We establish  E_{u ~ rejection_dist}[ f(u) ]  ≤  ε   via
-//
-//   E_{u ~ rejection_dist}[ f(u) ]                                          (E6)
-//      = (1/N) · Σ_{u<d} e^{−u/d} · f(u)                                    (E5)
-//      = (1/N) · Σ_{u<d} e^{−u/d} · Σ_{v∈ℕ} inner_geom_summand(v) · g(u,v)  (E4)
-//      = (1 − e^{−1})/N · Σ_{u<d, v∈ℕ}                                      (E3)
-//                            e^{−u/d − v} · F((u + d·v) / n)
-//                  BIJECTION:      ℕ × {0..d−1}  ↔  ℕ, 
-//                                  (v, u)        ↔ u + d·v = k
-//      = (1 − e^{−1})/N · Σ_{k∈ℕ} e^{−k/d} · F(k / n)                       (E2)
-//                  BIJECTION:      ℕ × {0..n−1}  ↔  ℕ,
-//                                  (r, i)        ↔ n·r + i = k
-//        so F(k/n) = F(r),  e^{−k/d} = (e^{−n/d})^r · e^{−i/d};
-//        Σ_{i<n} e^{−i/d} = (1 − e^{−n/d})/(1 − e^{−1/d})  (closed form),
-//        and  N = (1 − e^{−1})/(1 − e^{−1/d})  cancels the (1 − e^{−1/d})
-//        denominator, leaving the prefactor (1 − e^{−n/d}).
-//      = Σ_{r∈ℕ} outer_geom_pmf(r) · F(r)                                   (E1)
-//      ≤ ε                                                                  (pre)
-//
-// EQUATION ↔ PROOF FUNCTION  (each step listed as "E_{from} → E_{to}"):
-//
-//   E6 → E5    Unfold rejection_dist.  Definitional:
-//              `rej_weighted_avg(d, F) := rej_weighted_sum(d, F, d) / N`.
-//              Discharged inside `lemma_weighted_avg_bound`.
-//
-//   E5 → E4    Unfold f as the limit of inner Geom partial sums.
-//              `lemma_f_is_limit` identifies f(u) with that limit, and
-//              `lemma_geo_exp_partial_eq_inner` bridges
-//                  (1 − e^{−1}) · inner_at_u  =  geo_exp_partial_sum.
-//
-//   E4 → E3    Per-term algebraic factoring (no limit interchange): pull
-//              (1 − e^{−1}) out of the inner sum and combine exponents,
-//              e^{−u/d} · (e^{−1})^v = e^{−u/d − v}.  Both lines carry the
-//              same Σ_{v∈ℕ}; this is just the summand rewritten.
-//
-//   E3 ↔ E2    EUCLIDEAN BIJECTION (divisor d):
-//              `lemma_euclidean_bijection_partial` proves the finite
-//              re-indexing  Σ_{u<d, v<M} = Σ_{k<d·M}  term-by-term.
-//
-//   E2 → E1    BUCKETING (divisor n) + closed-form sums:
-//              `lemma_outer_partial_buckets`         (k → (r, i) bucketing);
-//              `lemma_rej_weight_sum_telescope`      (Σ_{i<n} e^{−i/d}
-//                                                     telescoping closed form);
-//              `lemma_norm_const_identity`           (N · (1 − e^{−1/d}) = 1 − e^{−1});
-//              `lemma_key_identity`                  glues the three together.
-//
-//   E1 ≤ ε     Hoare-rule precondition handed in by the caller.
-//
-// FINITE TRUNCATION + PASS TO THE LIMIT.  The bijection / bucket / closed-form
-// lemmas above operate at a finite v-cutoff m, so the chain is run truncated:
-// `lemma_partial_weighted_avg_bound` bundles E3 ↔ E2 → E1 at each m,
-//      ∀ m.  (1 − e^{−1}) · joint_helper(numer, denom, e, m, d)  ≤  N · dist_bound,
-// where the LHS is the m-th partial sum of the E3 double-sum.  Write
-// S := Σ_{u<d} e^{−u/d} · f(u)  (so E6 = S / N).  Two limit facts finish:
-//   • `lemma_weighted_joint_helper_converges`:  as m → ∞ that LHS converges to
-//     S  (sum-of-limits over the finite outer u-sum, via
-//     `math::series::lemma_limit_add` / `lemma_limit_scale`), and
-//   • `math::series::lemma_limit_le_bound`:  a limit of values all ≤ N · dist_bound
-//     is itself ≤ N · dist_bound,  so  S ≤ N · dist_bound.
-// Dividing by N gives  E6 = S / N ≤ dist_bound,  i.e. dist_bound ≥ E_{u ~ μ_{L(d)}}[ f(u) ].
-//
-// LIMIT-PASS-THROUGH LEMMAS (lifting partial-sum facts to facts about f):
-//
-//   • `lemma_f_nonneg`           — f(u) ≥ 0 for u < d
-//                                  (`lemma_inner_partial_nonneg_at`
-//                                   + `math::series::lemma_limit_ge_bound`).
-//   • `lemma_f_bounds_inner`     — f(u) ≥ every inner Geom partial sum
-//                                  (`lemma_geo_exp_partial_nondecreasing`
-//                                   + `math::series::lemma_monotone_limit_upper_bound`).
-//   • `lemma_weighted_avg_bound` — dist_bound ≥ E_{u ~ rejection_dist}[ f(u) ]
-//                                  (the E6 → E1 chain, packaged).
-//
+//! Fast sampler for Geometric(1 − e^{−n/d}) (CKS20).
+//!
+//! Algorithm:
+//!
+//!   u ← sample_exp_rejection(d)        // u ~ rejection_dist(d)
+//!   v ← sample_geometric_exp(1, 1)     // v ~ Geometric(1 − e^{−1})
+//!   z ← u + d · v
+//!   return z / n                       // floor division
+//!
+//! Distribution claim:  result ~ Geometric(1 − e^{−n/d}),  with PMF
+//!
+//!   outer_geom_pmf(r) = (e^{−n/d})^r · (1 − e^{−n/d}).
+//!
+//! Hoare rule we prove:
+//!
+//! ```text
+//!   ε ≥ Σ_{r=0}^∞ outer_geom_pmf(r) · F(r)
+//!   ─────────────────────────────────────────────────────
+//!   [{ ↯(ε) }] sample_geometric_exp_fast(n/d) [{ r. ↯(F(r)) }]
+//! ```
+//!
+//! ─────────────────────────────────────────────────────────────────────────────
+//!  EQUATIONAL DERIVATION (the chain of identities the proof mirrors)
+//!
+//!  Equations are labeled E1 … E6 (top-of-chain = E6).  See the
+//!  "EQUATION ↔ PROOF FUNCTION" block below for the mapping from each step
+//!  to the Verus lemma that discharges it.
+//! ─────────────────────────────────────────────────────────────────────────────
+//!
+//! Let
+//!      N       := Σ_{u=0}^{d−1} e^{−u/d}                            [rej_norm_const]
+//!                  (normalizer of rejection_dist on {0..d−1};
+//!                   closed form: N = (1 − e^{−1})/(1 − e^{−1/d}),
+//!                   discharged by `lemma_norm_const_identity`)
+//!      g(u, v) := F((u + d·v) / n)                                  [g spec_fn]
+//!      f(u)    := lim_{m→∞} Σ_{v<m} inner_geom_summand(v) · g(u, v) [f spec_fn]
+//!      inner_geom_summand(v) := (e^{−1})^v · (1 − e^{−1})
+//!
+//! I.e. f(u) is the expected value of g(u, ·) under v ~ Geom(1 − e^{−1});
+//! the inner Geom partial sums converge to f(u) (`lemma_f_is_limit`).
+//!
+//! We establish  E_{u ~ rejection_dist}[ f(u) ]  ≤  ε   via
+//! ```text
+//!   E_{u ~ rejection_dist}[ f(u) ]                                          (E6)
+//!      = (1/N) · Σ_{u<d} e^{−u/d} · f(u)                                    (E5)
+//!      = (1/N) · Σ_{u<d} e^{−u/d} · Σ_{v∈ℕ} inner_geom_summand(v) · g(u,v)  (E4)
+//!      = (1 − e^{−1})/N · Σ_{u<d, v∈ℕ}                                      (E3)
+//!                            e^{−u/d − v} · F((u + d·v) / n)
+//!                  BIJECTION:      ℕ × {0..d−1}  ↔  ℕ, 
+//!                                  (v, u)        ↔ u + d·v = k
+//!      = (1 − e^{−1})/N · Σ_{k∈ℕ} e^{−k/d} · F(k / n)                       (E2)
+//!                  BIJECTION:      ℕ × {0..n−1}  ↔  ℕ,
+//!                                  (r, i)        ↔ n·r + i = k
+//!        so F(k/n) = F(r),  e^{−k/d} = (e^{−n/d})^r · e^{−i/d};
+//!        Σ_{i<n} e^{−i/d} = (1 − e^{−n/d})/(1 − e^{−1/d})  (closed form),
+//!        and  N = (1 − e^{−1})/(1 − e^{−1/d})  cancels the (1 − e^{−1/d})
+//!        denominator, leaving the prefactor (1 − e^{−n/d}).
+//!      = Σ_{r∈ℕ} outer_geom_pmf(r) · F(r)                                   (E1)
+//!      ≤ ε                                                                  (pre)
+//! ```
+//! EQUATION ↔ PROOF FUNCTION  (each step listed as "E_{from} → E_{to}"):
+//!
+//!   E6 → E5    Unfold rejection_dist.  Definitional:
+//!              `rej_weighted_avg(d, F) := rej_weighted_sum(d, F, d) / N`.
+//!              Discharged inside `lemma_weighted_avg_bound`.
+//!
+//!   E5 → E4    Unfold f as the limit of inner Geom partial sums.
+//!              `lemma_f_is_limit` identifies f(u) with that limit, and
+//!              `lemma_geo_exp_partial_eq_inner` bridges
+//!                  (1 − e^{−1}) · inner_at_u  =  geo_exp_partial_sum.
+//!
+//!   E4 → E3    Per-term algebraic factoring (no limit interchange): pull
+//!              (1 − e^{−1}) out of the inner sum and combine exponents,
+//!              e^{−u/d} · (e^{−1})^v = e^{−u/d − v}.  Both lines carry the
+//!              same Σ_{v∈ℕ}; this is just the summand rewritten.
+//!
+//!   E3 ↔ E2    EUCLIDEAN BIJECTION (divisor d):
+//!              `lemma_euclidean_bijection_partial` proves the finite
+//!              re-indexing  Σ_{u<d, v<M} = Σ_{k<d·M}  term-by-term.
+//!
+//!   E2 → E1    BUCKETING (divisor n) + closed-form sums:
+//!              `lemma_outer_partial_buckets`         (k → (r, i) bucketing);
+//!              `lemma_rej_weight_sum_telescope`      (Σ_{i<n} e^{−i/d}
+//!                                                     telescoping closed form);
+//!              `lemma_norm_const_identity`           (N · (1 − e^{−1/d}) = 1 − e^{−1});
+//!              `lemma_key_identity`                  glues the three together.
+//!
+//!   E1 ≤ ε     Hoare-rule precondition handed in by the caller.
+//!
+//! FINITE TRUNCATION + PASS TO THE LIMIT.  The bijection / bucket / closed-form
+//! lemmas above operate at a finite v-cutoff m, so the chain is run truncated:
+//! `lemma_partial_weighted_avg_bound` bundles E3 ↔ E2 → E1 at each m,
+//!      ∀ m.  (1 − e^{−1}) · joint_helper(numer, denom, e, m, d)  ≤  N · dist_bound,
+//! where the LHS is the m-th partial sum of the E3 double-sum.  Write
+//! S := Σ_{u<d} e^{−u/d} · f(u)  (so E6 = S / N).  Two limit facts finish:
+//!   • `lemma_weighted_joint_helper_converges`:  as m → ∞ that LHS converges to
+//!     S  (sum-of-limits over the finite outer u-sum, via
+//!     `math::series::lemma_limit_add` / `lemma_limit_scale`), and
+//!   • `math::series::lemma_limit_le_bound`:  a limit of values all ≤ N · dist_bound
+//!     is itself ≤ N · dist_bound,  so  S ≤ N · dist_bound.
+//! Dividing by N gives  E6 = S / N ≤ dist_bound,  i.e. dist_bound ≥ E_{u ~ μ_{L(d)}}[ f(u) ].
+//!
+//! LIMIT-PASS-THROUGH LEMMAS (lifting partial-sum facts to facts about f):
+//!
+//!   • `lemma_f_nonneg`           — f(u) ≥ 0 for u < d
+//!                                  (`lemma_inner_partial_nonneg_at`
+//!                                   + `math::series::lemma_limit_ge_bound`).
+//!   • `lemma_f_bounds_inner`     — f(u) ≥ every inner Geom partial sum
+//!                                  (`lemma_geo_exp_partial_nondecreasing`
+//!                                   + `math::series::lemma_monotone_limit_upper_bound`).
+//!   • `lemma_weighted_avg_bound` — dist_bound ≥ E_{u ~ rejection_dist}[ f(u) ]
+//!                                  (the E6 → E1 chain, packaged).
+//!
 
 use vstd::prelude::*;
 

@@ -1,18 +1,18 @@
-// Sample from Bernoulli(exp(-x)) for x ≥ 0.
-//
-// Decomposes x = floor(x) + frac(x), then:
-//   1. Sample floor(x) independent Bernoulli(exp(-1)).
-//   2. If all are true, sample Bernoulli(exp(-frac(x))).
-//   3. Return false if any Bernoulli(exp(-1)) is false.
-//
-// Since exp(-x) = exp(-1)^floor(x) · exp(-frac(x)), the output
-// is Bernoulli(exp(-x)).
-//
-// We prove the following Expectation Preservation Rule
-//
-//   ε ≥ exp(-x) · ℰ(true) + (1 - exp(-x)) · ℰ(false)
-//   ---------------------------------------------------
-//   [{ ↯(ε) }] sample_bernoulli_exp(x) [{ v. ↯(ℰ(v)) }]
+//! Sample from Bernoulli(exp(-x)) for x ≥ 0.
+//!
+//! Decomposes x = floor(x) + frac(x), then:
+//!   1. Sample floor(x) independent Bernoulli(exp(-1)).
+//!   2. If all are true, sample Bernoulli(exp(-frac(x))).
+//!   3. Return false if any Bernoulli(exp(-1)) is false.
+//!
+//! Since exp(-x) = exp(-1)^floor(x) · exp(-frac(x)), the output
+//! is Bernoulli(exp(-x)).
+//!
+//! We prove the following Expectation Preservation Rule
+//!
+//!   ε ≥ exp(-x) · ℰ(true) + (1 - exp(-x)) · ℰ(false)
+//!   ---------------------------------------------------
+//!   [{ ↯(ε) }] sample_bernoulli_exp(x) [{ v. ↯(ℰ(v)) }]
 
 use vstd::prelude::*;
 #[cfg(verus_keep_ghost)]

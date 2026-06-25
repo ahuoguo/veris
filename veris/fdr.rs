@@ -1,6 +1,5 @@
-//!! # FDR — Lumbroso's Fast Dice Roller: sample uniformly from {0, …, n−1} using only
-//! # fair coin flips.  Verified end-to-end (and axiom-free) in the error-credit
-//! # (Eris / Verus) framework.
+//! FDR — Lumbroso's Fast Dice Roller: sample uniformly from {0, …, n−1} using only
+//! fair coin flips.
 //!
 //! References (verification via distributional invariants):
 //!   - [FM 26]   https://arxiv.org/abs/2509.06410

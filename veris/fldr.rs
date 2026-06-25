@@ -1,12 +1,13 @@
-//! # FLDR — the Fast Loaded Dice Roller: sample outcome i ∈ {0,…,n−1} with probability
-//!  # aᵢ/m  (m = Σ aᵢ),  using only fair coin flips.
+//! FLDR — the Fast Loaded Dice Roller: sample outcome i ∈ {0,…,n−1} with probability
+//! aᵢ/m  (m = Σ aᵢ),  using only fair coin flips.
 //!
 //! References:
-//!   - [AISTATS 20]  https://arxiv.org/abs/2003.03830   (the FLDR paper)
-//!   - [FM 26]       https://arxiv.org/abs/2509.06410   (verification using distr. inv.)
+//!   - [AISTATS 20](https://arxiv.org/abs/2003.03830)
+//!   - [FM 26](https://arxiv.org/abs/2509.06410)
+//! 
 //! Rust implementations: 
-//!    https://github.com/ryco117/fast_loaded_dice_roller
-//!    https://github.com/vks/rand/blob/fldr/rand_distr/src/weighted_fldr.rs
+//!   - https://github.com/ryco117/fast_loaded_dice_roller
+//!   - https://github.com/vks/rand/blob/fldr/rand_distr/src/weighted_fldr.rs
 //!
 //! Algoirthm:
 //! Preprocess the integer weights a₀,…,a_{n−1} (total m, K = ⌈log₂ m⌉) into the
@@ -36,9 +37,11 @@
 //!
 //! We prove the Expectation-Preservation Rule for the loaded distribution:
 //!
+//! ```text
 //!            ε ≥ Σ_{i<n} (aᵢ/m)·ℰ(i)
 //!   ───────────────────────────────────────────────
 //!   [{ ↯(ε) }] sample_fldr(weights) [{ i. ↯(ℰ(i)) }]
+//! ```
 //!
 //!  The credit distributions are similar to `fdr.rs`
 //!

@@ -1,41 +1,41 @@
-// Sample from the Discrete Gaussian N_ℤ(0, σ²)  (CKS20 §5.3), σ = numer/denom.
-//
-// Algorithm — rejection sampling against a discrete-Laplace proposal:
-//   t = ⌊σ⌋ + 1
-//   loop { y ← sample_discrete_laplace(t);          // Y ~ L_ℤ(0, t)
-//          if Bernoulli(exp(−(|y| − σ²/t)²/(2σ²))): return y }
-//
-// Expectation Preservation Rule, under the discrete-Gaussian pmf
-//   gauss_pmf(x) := e^{−x²/2σ²} / Z,   Z := Σ_{y∈ℤ} e^{−y²/2σ²}:
-//
-//   ε ≥ Σ_{x∈ℤ} gauss_pmf(x)·ℰ(x)
-//   ───────────────────────────────────────
-//   [{ ↯(ε) }] sample_discrete_gaussian(σ) [{ v. ↯(ℰ(v)) }]
-//
-// The proposal weight P_L[y] = (1−p)/(1+p)·e^{−|y|/t}  (p = e^{−1/t})
-// times the acceptance C(y) = e^{−bias(y)},  bias(y) := (|y| − σ²/t)²/(2σ²),  
-// factors through the Gaussian kernel:
-//   P_L[y]·C(y) = const · e^{−y²/2σ²},   const = (1−p)/(1+p)·e^{−σ²/2t²}
-// (the exponent identity |y|/t + bias(y) = y²/2σ² + σ²/2t²).  Summing over y, one
-// loop iteration accepts with probability  a = const·Z,  and conditioned on accepting,
-// returns y with probability const·e^{−y²/2σ²}/a = gauss_pmf(y) — the target pmf.
-// We never need Z in closed form: a is obtained as a limit with const ≤ a ≤ 1 (the
-// accept mass never exceeds the proposal mass ≤ 1), and each rejection amplifies the
-// thin-air slack by 1/(1−const) > 1, forcing termination (using only a ≥ const).
-//
-// Proof outline:
-//   1. Per-term factorization  P_L[y]·C(y) = const·kernel(y)
-//        lemma_gauss_pointwise → lemma_dl_accept_eq_kernel → lemma_dg_accept_term
-//   2. Split the proposal draw's DL partial sum into accept + reject parts
-//        lemma_dg_decomposition
-//   3. Acceptance probability a = const·Z exists, with const ≤ a ≤ 1
-//        lemma_dl_mass_limit, lemma_dg_accept_le_mass → lemma_gauss_accept_prob
-//   4. Credit bound for one proposal draw  (retry credit rc = ε + slack/(1−const))
-//        lemma_dg_dl_bound
-//   5. Rejection loop with slack amplification  (entry: sample_discrete_gaussian_entry)
-//        sample_discrete_gaussian
-//   6. The precondition ε ≥ Σ gauss_pmf·ℰ ⟺ the internal kernel-form bound
-//        gauss_pmf, gauss_pmf_partial, lemma_dg_series_iff
+//! Sample from the Discrete Gaussian N_ℤ(0, σ²)  (CKS20 §5.3), σ = numer/denom.
+//!
+//! Algorithm — rejection sampling against a discrete-Laplace proposal:
+//!   t = ⌊σ⌋ + 1
+//!   loop { y ← sample_discrete_laplace(t);          // Y ~ L_ℤ(0, t)
+//!          if Bernoulli(exp(−(|y| − σ²/t)²/(2σ²))): return y }
+//!
+//! Expectation Preservation Rule, under the discrete-Gaussian pmf
+//!   gauss_pmf(x) := e^{−x²/2σ²} / Z,   Z := Σ_{y∈ℤ} e^{−y²/2σ²}:
+//!
+//!   ε ≥ Σ_{x∈ℤ} gauss_pmf(x)·ℰ(x)
+//!   ───────────────────────────────────────
+//!   [{ ↯(ε) }] sample_discrete_gaussian(σ) [{ v. ↯(ℰ(v)) }]
+//!
+//! The proposal weight P_L[y] = (1−p)/(1+p)·e^{−|y|/t}  (p = e^{−1/t})
+//! times the acceptance C(y) = e^{−bias(y)},  bias(y) := (|y| − σ²/t)²/(2σ²),  
+//! factors through the Gaussian kernel:
+//!   P_L[y]·C(y) = const · e^{−y²/2σ²},   const = (1−p)/(1+p)·e^{−σ²/2t²}
+//! (the exponent identity |y|/t + bias(y) = y²/2σ² + σ²/2t²).  Summing over y, one
+//! loop iteration accepts with probability  a = const·Z,  and conditioned on accepting,
+//! returns y with probability const·e^{−y²/2σ²}/a = gauss_pmf(y) — the target pmf.
+//! We never need Z in closed form: a is obtained as a limit with const ≤ a ≤ 1 (the
+//! accept mass never exceeds the proposal mass ≤ 1), and each rejection amplifies the
+//! thin-air slack by 1/(1−const) > 1, forcing termination (using only a ≥ const).
+//!
+//! Proof outline:
+//!   1. Per-term factorization  P_L[y]·C(y) = const·kernel(y)
+//!        lemma_gauss_pointwise → lemma_dl_accept_eq_kernel → lemma_dg_accept_term
+//!   2. Split the proposal draw's DL partial sum into accept + reject parts
+//!        lemma_dg_decomposition
+//!   3. Acceptance probability a = const·Z exists, with const ≤ a ≤ 1
+//!        lemma_dl_mass_limit, lemma_dg_accept_le_mass → lemma_gauss_accept_prob
+//!   4. Credit bound for one proposal draw  (retry credit rc = ε + slack/(1−const))
+//!        lemma_dg_dl_bound
+//!   5. Rejection loop with slack amplification  (entry: sample_discrete_gaussian_entry)
+//!        sample_discrete_gaussian
+//!   6. The precondition ε ≥ Σ gauss_pmf·ℰ ⟺ the internal kernel-form bound
+//!        gauss_pmf, gauss_pmf_partial, lemma_dg_series_iff
 
 use vstd::prelude::*;
 

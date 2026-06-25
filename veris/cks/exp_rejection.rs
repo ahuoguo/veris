@@ -1,35 +1,35 @@
-// Exponential-rejection sampler producing rejection_dist(u) = e^{−u/d} / N
-// on {0, …, d−1}, where N = Σ_{u<d} e^{−u/d}.
-//
-// Algorithm:
-//   loop:
-//     u ← Uniform({0, …, d−1})
-//     b ← Bernoulli(e^{−u/d})
-//     if b: return u
-//
-// Expectation Preservation Rule:
-//
-//   eps_avg ≥ E_{u ~ rejection_dist}[ℰ(u)] = (1/N) · Σ_{u<d} e^{−u/d} · ℰ(u)
-//   ─────────────────────────────────────────────────────────────────────────
-//   [{ ↯(eps_avg) }] sample_exp_rejection(d) [{ u. ↯(ℰ(u)) }]
-//
-// Credit derivation:
-//
-//   alloc(w)        = e^{−w/d} · flip_accept(w) + (1 − e^{−w/d}) · flip_reject
-//   flip_accept(w)  = ℰ(w)                                    // accept arm
-//   flip_reject     = E_{l ~ rejection_dist}[ℰ(l)]            // recursive expected value
-//
-// the average over the uniform step exactly equals the target expectation:
-//
-//   E_{u ~ rejection_dist}[ℰ(u)]  =  (1/d) · Σ_w alloc(w).
-//
-// To close the while-loop in Hoare logic we add thin-air slack ε and amplify:
-//   rej_credit  = amp·ε + eps_avg     (amp = 1/R, R = 1 − N/d)
-//   alloc(w)    = e^{−w/d}·ℰ(w) + (1 − e^{−w/d})·rej_credit
-//   average(d, alloc) ≤ ε + eps_avg                         (`lemma_rej_average`)
-// On rejection the carried credit is `rej_credit`; the next iteration uses
-// ε ↦ amp·ε.  Since amp > 1 the slack grows geometrically and the
-// Archimedean property bounds the number of iterations.
+//! Exponential-rejection sampler producing rejection_dist(u) = e^{−u/d} / N
+//! on {0, …, d−1}, where N = Σ_{u<d} e^{−u/d}.
+//!
+//! Algorithm:
+//!   loop:
+//!     u ← Uniform({0, …, d−1})
+//!     b ← Bernoulli(e^{−u/d})
+//!     if b: return u
+//!
+//! Expectation Preservation Rule:
+//!
+//!   eps_avg ≥ E_{u ~ rejection_dist}[ℰ(u)] = (1/N) · Σ_{u<d} e^{−u/d} · ℰ(u)
+//!   ─────────────────────────────────────────────────────────────────────────
+//!   [{ ↯(eps_avg) }] sample_exp_rejection(d) [{ u. ↯(ℰ(u)) }]
+//!
+//! Credit derivation:
+//!
+//!   alloc(w)        = e^{−w/d} · flip_accept(w) + (1 − e^{−w/d}) · flip_reject
+//!   flip_accept(w)  = ℰ(w)                                    // accept arm
+//!   flip_reject     = E_{l ~ rejection_dist}[ℰ(l)]            // recursive expected value
+//!
+//! the average over the uniform step exactly equals the target expectation:
+//!
+//!   E_{u ~ rejection_dist}[ℰ(u)]  =  (1/d) · Σ_w alloc(w).
+//!
+//! To close the while-loop in Hoare logic we add thin-air slack ε and amplify:
+//!   rej_credit  = amp·ε + eps_avg     (amp = 1/R, R = 1 − N/d)
+//!   alloc(w)    = e^{−w/d}·ℰ(w) + (1 − e^{−w/d})·rej_credit
+//!   average(d, alloc) ≤ ε + eps_avg                         (`lemma_rej_average`)
+//! On rejection the carried credit is `rej_credit`; the next iteration uses
+//! ε ↦ amp·ε.  Since amp > 1 the slack grows geometrically and the
+//! Archimedean property bounds the number of iterations.
 
 use vstd::prelude::*;
 
