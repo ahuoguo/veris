@@ -1,29 +1,29 @@
-// 1D Symmetric Random Walk - Almost Sure Termination
-// Solves by having the credit allocation as the failure probability, 
-// namely: fail_prob(steps, pos) = 1 - Pr[walk from pos reaches 0 in ≤ steps]
-//
-// fail_prob(0, p) = 1
-// fail_prob(s, 0) = 0
-// fail_prob(s, p) = (fail_prob(s-1, p-1) fail_prob(s-1, p+1)) / 2
-//
-// Then the credit allocation is just the last case of the recurrence relation.
-//
-// The rest of the heavy lifting is proving the Archimedean property: 
-// ∀ δ > 0, ∀ p, ∃ s, fail_prob(s, p) < δ
-//
-// Proof of rw_ast (fail_limit(p) := lim_{s→∞} fail_prob(s, p)):
-//   1. fail_prob(s, p) is non-increasing in s and bounded below by 0,
-//      so by monotone convergence it converges to fail_limit(p).
-//   2. Taking limits in the recurrence gives the discrete harmonic equation:
-//        fail_limit(p) = (fail_limit(p-1) + fail_limit(p+1))/2,  fail_limit(0) = 0
-//      The general solution is fail_limit(p) = A + B·p. Since fail_limit(0) = 0,
-//      A = 0, so fail_limit(p) = p · fail_limit(1).
-//   3. Since fail_prob(s, p) <= 1 for all s, we have fail_limit(p) <= 1 for all p.
-//      If fail_limit(1) > 0, by the archimedean property pick p >= 1/fail_limit(1)
-//      to get fail_limit(p) = p · fail_limit(1) > 1, a contradiction.
-//      Therefore fail_limit(1) = 0, and fail_limit(p) = 0 for all p.
-//   4. Since fail_prob(s, p) converges to 0, for any delta > 0 there exists s
-//      with fail_prob(s, p) < delta.
+//！ 1D Symmetric Random Walk - Almost Sure Termination
+//！ we introduce a fuel to the credit allocation to make it well-founded
+//！ fail_prob(steps, pos) = 1 - Pr[walk from pos reaches 0 in ≤ steps]
+//!
+//! fail_prob(0, p) = 1
+//! fail_prob(s, 0) = 0
+//! fail_prob(s, p) = (fail_prob(s-1, p-1) fail_prob(s-1, p+1)) / 2
+//!
+//! Then the credit allocation is just the last case of the recurrence relation.
+//!
+//! The rest of the heavy lifting is proving:
+//! ∀ δ > 0, ∀ p, ∃ s, fail_prob(s, p) < δ
+//!
+//! Proof of rw_ast (fail_limit(p) := lim_{s→∞} fail_prob(s, p)):
+//!   1. fail_prob(s, p) is non-increasing in s and bounded below by 0,
+//!      so by monotone convergence it converges to fail_limit(p).
+//!   2. Taking limits in the recurrence gives the discrete harmonic equation:
+//!        fail_limit(p) = (fail_limit(p-1) + fail_limit(p+1))/2,  fail_limit(0) = 0
+//!      The general solution is fail_limit(p) = A + B·p. Since fail_limit(0) = 0,
+//!      A = 0, so fail_limit(p) = p · fail_limit(1).
+//!   3. Since fail_prob(s, p) <= 1 for all s, we have fail_limit(p) <= 1 for all p.
+//!      If fail_limit(1) > 0, by the archimedean property pick p >= 1/fail_limit(1)
+//!      to get fail_limit(p) = p · fail_limit(1) > 1, a contradiction.
+//!      Therefore fail_limit(1) = 0, and fail_limit(p) = 0 for all p.
+//!   4. Since fail_prob(s, p) converges to 0, for any delta > 0 there exists s
+//!      with fail_prob(s, p) < delta.
 
 use vstd::prelude::*;
 

@@ -1,13 +1,13 @@
-// example showing that combining Eris-style error credits with 
-// prophecy variables is unsound.
-//
-// The informal example:
-//
-//     let p = new proph
-//     let x = rand 1 in
-//     resolve p to x;;
-//     () ()                  (* crash *)
-//
+//! example showing that combining Eris-style error credits with 
+//! prophecy variables is unsound.
+//!
+//! The informal example:
+//!
+//!     let p = new proph
+//!     let x = rand 1 in
+//!     resolve p to x;;
+//!     () ()                  (* crash *)
+//!
 
 #[cfg(verus_keep_ghost)]
 use vstd::resource::pcm::*;

@@ -1,20 +1,20 @@
-// Attempt to replicate the prophecy/error-credit paradox using Verus's
-// prophecy-based encoding of mutable borrows. Concretely, `*final(x)` for
-// `x: &mut T` is a prophesied value — the analogue of `Prophecy::view`.
-//
-// Crucially, `*final(_)` (like `ProphecyGhost::value`) is marked
-// `verifier::prophetic`, so Verus tracks its dependencies and refuses to
-// let it flow into tracked/ghost positions that could break soundness. We
-// therefore expect this attempt to fail to verify, and that is the point:
-// the very tracking that the new mutable-references encoding inherits is
-// what rules out the Eris-style paradox — whereas plain `vstd::proph::Prophecy`
-// (whose `view` is not marked prophetic) does not enforce it, which is why
-// `proph_paradox.rs` goes through.
-//
-// We include the attempt here for completeness; it is gated behind a
-// `cfg(any())` so the rest of the crate keeps verifying. To see Verus
-// actually emit the rejection, remove the `#[cfg(any())]` line below
-// (or run `bash demo_mutref_rejection.sh` from this directory).
+//! Attempt to replicate the prophecy/error-credit paradox using Verus's
+//! prophecy-based encoding of mutable borrows. Concretely, `*final(x)` for
+//! `x: &mut T` is a prophesied value — the analogue of `Prophecy::view`.
+//!
+//! Crucially, `*final(_)` (like `ProphecyGhost::value`) is marked
+//! `verifier::prophetic`, so Verus tracks its dependencies and refuses to
+//! let it flow into tracked/ghost positions that could break soundness. We
+//! therefore expect this attempt to fail to verify, and that is the point:
+//! the very tracking that the new mutable-references encoding inherits is
+//! what rules out the Eris-style paradox — whereas plain `vstd::proph::Prophecy`
+//! (whose `view` is not marked prophetic) does not enforce it, which is why
+//! `proph_paradox.rs` goes through.
+//!
+//! We include the attempt here for completeness; it is gated behind a
+//! `cfg(any())` so the rest of the crate keeps verifying. To see Verus
+//! actually emit the rejection, remove the `#[cfg(any())]` line below
+//! (or run `bash demo_mutref_rejection.sh` from this directory).
 
 #![allow(unused)]
 

@@ -1,6 +1,3 @@
-// Runtime smoke tests for the verified samplers. Lives outside the lib
-// crate (and outside `verus!`) so it isn't part of verification.
-
 use veris::{alias, cks, fldr, geo, geo_dist, ho_rej_samp};
 
 fn main() {

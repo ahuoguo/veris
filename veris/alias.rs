@@ -1,69 +1,68 @@
-// Alias Method — sample outcome i ∈ {0,…,n−1} with probability aᵢ/m (m = Σ aᵢ),
-// in O(1) per sample, using two uniform draws.  Exact / integer version (no floats),
-// verified in the same error-credit (Eris/Verus) framework as fldr.rs.
-//
-// References:
-//   - Walker 1977, Vose 1991
-//   - https://www.keithschwarz.com/darts-dice-coins/
-//   - rust-random/rand alias method: https://github.com/rust-random/rand/pull/692
-//   - FLDR paper reference implementation:
-//     https://github.com/probsys/fast-loaded-dice-roller-experiments
-//
-// ## Algorithm
-// Preprocess weights a₀,…,a_{n−1} (total m) into two length-n tables, `prob` and
-// `alias`, so that the n equal-probability "bins" (one per index) each hold total
-// mass m, split between two labels:  bin i holds prob[i] units of label i and
-// (m − prob[i]) units of label alias[i].  Multiplying weights by n, the tables are
-// built so that each label k's total units across all bins is n·aₖ
-//
-// Sampling is two uniform draws and a comparison:
-//
-//   i ← Uniform{0,…,n−1}                        // pick a bin
-//   r ← Uniform{0,…,m−1}                        // pick within the bin
-//   return  if r < prob[i] { i } else { alias[i] }
-//
-// Then  P(k) = (1/n)·Σ_i ( [i=k]·prob[i] + [alias[i]=k]·(m−prob[i]) ) / m
-//            = (1/(n·m))·(total units of k across all bins).
-// For this to equal aₖ/m we need (total units of k) = n·aₖ — which is exactly the
-// `valid_alias` condition `label_units(t, n, k) == n·weights(k)`
-//
-// ## Expectation-Preservation Rule
-//            ε ≥ Σ_{i<n} (aᵢ/m)·ℰ(i)
-//   ────────────────────────────────────────────────
-//   [{ ↯(ε) }] sample_alias(tab) [{ i. ↯(ℰ(i)) }]
-//
-// The two uniform draws nest.  The OUTER bin draw is funded with `inner_eps(i)` = bin_credit(i)/m
-// =  1/m · (prob[i]·ℰ(i) + (m−prob[i])·ℰ(alias[i])) — which is the average the INNER threshold draw
-// needs to then yield ↯(ℰ(result)):  average_{r<m} ℰ(r<prob[i] ? i : alias[i]) = inner_eps(i)
-// (`lemma_inner_average`, a step sum split at prob[i] via `lemma_ialloc_stepsum`).
-//
-// It then remains to fund the outer draw from ε, i.e. to show its average is the target:
-//   average_{i<n} inner_eps(i)  =  Σ_{k<n} (aₖ/m)·ℰ(k)           (`lemma_average_outer`)
-// Clearing the /m and /n, this is  Σ_i bin_credit(i) = n·Σ_k aₖ·ℰ(k)  (`lemma_bin_sum_eq`)
-//
-// `bin_contrib(i,k)`: the count of label-k units sitting in bin i: prob[i] of them when k = i 
-// (m−prob[i]) when k = alias[i], 0 otherwise.
-//
-//   Σ_i bin_credit(i)  =  Σ_i Σ_k ℰ(k)·bin_contrib(i,k)    -- per bin (≤2 labels): lemma_bin_contrib_sum_sel
-//                      =  Σ_k ℰ(k)·Σ_i bin_contrib(i,k)    -- lemma_fubini
-//                      =  Σ_k ℰ(k)·label_units(k)          -- label_units(k) := Σ_i bin_contrib(i,k)
-//                      =  Σ_k ℰ(k)·(n·aₖ) = n·Σ_k aₖ·ℰ(k)   -- lemma_label_credit_sum_validity
+//! # Alias Method — sample outcome i ∈ {0,…,n−1} with probability aᵢ/m (m = Σ aᵢ),
+//! # in O(1) per sample, using two uniform draws.  Exact / integer version (no floats)
+//!
+//! References:
+//!   - Walker 1977, Vose 1991
+//!   - https://www.keithschwarz.com/darts-dice-coins/
+//!   - rust-random/rand alias method: https://github.com/rust-random/rand/pull/692
+//!   - FLDR paper reference implementation:
+//!     https://github.com/probsys/fast-loaded-dice-roller-experiments
+//!
+//! ## Algorithm
+//! Preprocess weights a₀,…,a_{n−1} (total m) into two length-n tables, `prob` and
+//! `alias`, so that the n equal-probability "bins" (one per index) each hold total
+//! mass m, split between two labels:  bin i holds prob[i] units of label i and
+//! (m − prob[i]) units of label alias[i].  Multiplying weights by n, the tables are
+//! built so that each label k's total units across all bins is n·aₖ
+//!
+//! Sampling is two uniform draws and a comparison:
+//!
+//!   i ← Uniform{0,…,n−1}                        // pick a bin
+//!   r ← Uniform{0,…,m−1}                        // pick within the bin
+//!   return  if r < prob[i] { i } else { alias[i] }
+//!
+//! Then  P(k) = (1/n)·Σ_i ( [i=k]·prob[i] + [alias[i]=k]·(m−prob[i]) ) / m
+//!            = (1/(n·m))·(total units of k across all bins).
+//! For this to equal aₖ/m we need (total units of k) = n·aₖ — which is exactly the
+//! `valid_alias` condition `label_units(t, n, k) == n·weights(k)`
+//!
+//! ## Expectation-Preservation Rule
+//!            ε ≥ Σ_{i<n} (aᵢ/m)·ℰ(i)
+//!   ────────────────────────────────────────────────
+//!   [{ ↯(ε) }] sample_alias(tab) [{ i. ↯(ℰ(i)) }]
+//!
+//! The two uniform draws nest.  The OUTER bin draw is funded with `inner_eps(i)` = bin_credit(i)/m
+//! =  1/m · (prob[i]·ℰ(i) + (m−prob[i])·ℰ(alias[i])) — which is the average the INNER threshold draw
+//! needs to then yield ↯(ℰ(result)):  average_{r<m} ℰ(r<prob[i] ? i : alias[i]) = inner_eps(i)
+//! (`lemma_inner_average`, a step sum split at prob[i] via `lemma_ialloc_stepsum`).
+//!
+//! It then remains to fund the outer draw from ε, i.e. to show its average is the target:
+//!   average_{i<n} inner_eps(i)  =  Σ_{k<n} (aₖ/m)·ℰ(k)           (`lemma_average_outer`)
+//! Clearing the /m and /n, this is  Σ_i bin_credit(i) = n·Σ_k aₖ·ℰ(k)  (`lemma_bin_sum_eq`)
+//!
+//! `bin_contrib(i,k)`: the count of label-k units sitting in bin i: prob[i] of them when k = i 
+//! (m−prob[i]) when k = alias[i], 0 otherwise.
+//!
+//!   Σ_i bin_credit(i)  =  Σ_i Σ_k ℰ(k)·bin_contrib(i,k)    -- per bin (≤2 labels): lemma_bin_contrib_sum_sel
+//!                      =  Σ_k ℰ(k)·Σ_i bin_contrib(i,k)    -- lemma_fubini
+//!                      =  Σ_k ℰ(k)·label_units(k)          -- label_units(k) := Σ_i bin_contrib(i,k)
+//!                      =  Σ_k ℰ(k)·(n·aₖ) = n·Σ_k aₖ·ℰ(k)   -- lemma_label_credit_sum_validity
 
-// ## Preprocessing: `build_alias`
-// Scale weights by n: scaled_weights[i] = n·aᵢ. A bin is _small_ if scaled_weights[i] < m, 
-// _large_ if ≥ m, and active until finalized. Each step pops a small bin s
-// and a large bin l, then finalizes s: prob[s] ← scaled_weights[s], alias[s] ← l (s keeps
-// its own units and borrows the (m − scaled_weights[s]) shortfall from l), and re-pushes 
-// l by its new count.
-//
-// Three major invariants:
-//  - Mass:  placed(k) + scaled_weights[k] = n·aₖ for every label k, where placed(k) sums the
-//    finalized bins' contributions.  Each finalize moves the donated units scaled→placed
-//    (`lemma_placed_update`); holds at entry as placed = 0 (`lemma_placed_zero`).
-//  - Balance:  Σ_{active} scaled_weights = (#active)·m.  Forces a large partner to exist when
-//    small is nonempty — else the active sum would be < (#active)·m (`lemma_sum_active_le`).
-//  - Worklists hold exactly the active small / large bins, duplicate-free
-//    (`lemma_reestablish_worklists`).
+//! ## Preprocessing: `build_alias`
+//! Scale weights by n: scaled_weights[i] = n·aᵢ. A bin is _small_ if scaled_weights[i] < m, 
+//! _large_ if ≥ m, and active until finalized. Each step pops a small bin s
+//! and a large bin l, then finalizes s: prob[s] ← scaled_weights[s], alias[s] ← l (s keeps
+//! its own units and borrows the (m − scaled_weights[s]) shortfall from l), and re-pushes 
+//! l by its new count.
+//!
+//! Three major invariants:
+//!  - Mass:  placed(k) + scaled_weights[k] = n·aₖ for every label k, where placed(k) sums the
+//!    finalized bins' contributions.  Each finalize moves the donated units scaled→placed
+//!    (`lemma_placed_update`); holds at entry as placed = 0 (`lemma_placed_zero`).
+//!  - Balance:  Σ_{active} scaled_weights = (#active)·m.  Forces a large partner to exist when
+//!    small is nonempty — else the active sum would be < (#active)·m (`lemma_sum_active_le`).
+//!  - Worklists hold exactly the active small / large bins, duplicate-free
+//!    (`lemma_reestablish_worklists`).
 
 
 use vstd::prelude::*;

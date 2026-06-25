@@ -1,17 +1,17 @@
-// TODO: i might split this to 2 files... to move the instantiation out of the generic code
-
-// Higher Order Rejection Sampler
-// https://logsem.github.io/clutch/clutch.eris.examples.approximate_samplers.approx_higherorder_rejection_sampler.html
-//
-// A sampling scheme is parameterized by:
-// - `sampler`: A sampling function that generates candidate values
-// - `checker`: A predicate that determines if a sample should be accepted
-// - `εfactor`: Error amplification factor
-//
-// Spec (from Clutch):
-//   Given ↯ε, after sampler() returns v, either:
-//   - checker(v) = true and Θ(v) holds
-//   - OR we have ↯ε' where ε ≤ ε' * εfactor
+//! TODO: i might split this to 2 files... to move the instantiation out of the generic code
+//!
+//! Higher Order Rejection Sampler
+//! https://logsem.github.io/clutch/clutch.eris.examples.approximate_samplers.approx_higherorder_rejection_sampler.html
+//!
+//! A sampling scheme is parameterized by:
+//! - `sampler`: A sampling function that generates candidate values
+//! - `checker`: A predicate that determines if a sample should be accepted
+//! - `εfactor`: Error amplification factor
+//!
+//! Spec (from Clutch):
+//!   Given ↯ε, after sampler() returns v, either:
+//!   - checker(v) = true and Θ(v) holds
+//!   - OR we have ↯ε' where ε ≤ ε' * εfactor
 
 use vstd::prelude::*;
 #[cfg(verus_keep_ghost)]

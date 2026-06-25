@@ -1,4 +1,4 @@
-//! # The Escaping Spline//!
+//! # The Escaping Spline
 //! 
 //! ```
 //! rec spline n = let x = rand (n + 1) in if x = 0 then () else spline (n+1)

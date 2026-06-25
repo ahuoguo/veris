@@ -1,93 +1,93 @@
-// FLDR — the Fast Loaded Dice Roller: sample outcome i ∈ {0,…,n−1} with probability
-// aᵢ/m  (m = Σ aᵢ),  using only fair coin flips.
-//
-// References:
-//   - [AISTATS 20]  https://arxiv.org/abs/2003.03830   (the FLDR paper)
-//   - [FM 26]       https://arxiv.org/abs/2509.06410   (verification using distr. inv.)
-// Rust implementations: 
-//    https://github.com/ryco117/fast_loaded_dice_roller
-//    https://github.com/vks/rand/blob/fldr/rand_distr/src/weighted_fldr.rs
-//
-// Algoirthm:
-// Preprocess the integer weights a₀,…,a_{n−1} (total m, K = ⌈log₂ m⌉) into the
-// Knuth–Yao DDG (discrete-distribution-generating tree): a binary tree whose leaves
-// are labelled by outcomes, plus a reject label `n` carrying weight 2ᴷ − m so the
-// total leaf mass is 2ᴷ.  A leaf at depth c has probability 2⁻ᶜ, and the leaves of
-// outcome i carry total mass aᵢ/2ᴷ.  The extra `reject` label is the value `n` itself
-// (the real outcomes are 0..n−1, so `n` is "none of them"); its leaves hold the slack
-// mass 2ᴷ − m that pads the total up to a power of two.
-//
-// Sampling walks down the tree one coin flip at a time, tracking the current depth `c`
-// and the position `d` of the current node.
-// At each level the `h[c]` leaves come first (positions 0..h[c]−1) and the internal nodes
-// follow (positions ≥ h[c]).  On a real leaf it outputs that leaf's label; on a reject
-// leaf (label = `n`) it discards the walk and starts over at the root:
-//
-//   c ← 0; d ← 0                                    // start at the root (level 0, position 0)
-//   loop {
-//       b ← flip();  c ← c+1;  d ← 2d + b           // descend one level (left/right child)
-//       if d < h[c] {                               // d is one of the h[c] leaves here
-//           if lab[c][d] ≠ n { return lab[c][d] }   // real outcome → accept and return it
-//           else { d ← 0; c ← 0 }                   // reject (label n) → restart at the root
-//       } else { d ← d − h[c] }                     // internal node → renumber and keep going
-//   }
-// `h[c]` = number of leaves at level c;  `lab[c][d]` = label (an outcome in 0..n−1, or the
-// reject label n) of the d-th leaf at level c.
-//
-// We prove the Expectation-Preservation Rule for the loaded distribution:
-//
-//            ε ≥ Σ_{i<n} (aᵢ/m)·ℰ(i)
-//   ───────────────────────────────────────────────
-//   [{ ↯(ε) }] sample_fldr(weights) [{ i. ↯(ℰ(i)) }]
-//
-//  The credit distributions are similar to `fdr.rs`
-//
-//  (1) VALUE — the conditional expectation  fldr_f(c,d,k) = E[ℰ(out) | (c,d)] using
-//      ≤ k flips (0 if the coins runs out before accepting):
-//        fldr_f(c,d,0) = 0
-//        fldr_f(c,d,k) = ½·( fldr_g(c+1,2d,k−1) + fldr_g(c+1,2d+1,k−1) )
-//        fldr_g(c,d,k) = ℰ(lab[c][d])      if d < h[c], lab[c][d] < n   (accept)
-//                      = fldr_f(0,0,k)     if d < h[c], lab[c][d] = n   (reject, restart)
-//                      = fldr_f(c,d−h[c],k) if d ≥ h[c]                 (internal, descend)
-//      Correctness: fldr_f(0,0,k) ≤ Σ(aᵢ/m)ℰ(i).  Because a reject restarts at the
-//      root with *strictly smaller* fuel (every leaf is at depth ≥ 1), this follows
-//      by induction on k — no limits — from the DDG leaf-sum identity
-//      Σ_{accept leaves} 2⁻ᶜ·ℰ(lab) = Σ(aᵢ/2ᴷ)ℰ(i) and Σ_{reject leaves} 2⁻ᶜ = 1−m/2ᴷ.
-//
-//  (2) TERMINATION — the failure probability  fldr_fail_f(c,d,k) = 1 − P(accept within
-//      k flips)  (independent of ℰ): same shape, accept ↦ 0, k = 0 ↦ 1.  One full
-//      root-to-leaf traversal (≤ K flips) rejects with probability ρ = (2ᴷ−m)/2ᴷ < 1,
-//      so fldr_fail_f(0,0,jK) ≤ ρʲ → 0.
-//
-// ── Preprocessing: weights → DDG table ────────────────────────────────────────
-// The sampler above is funded by a *validated* table; building and validating that
-// table is the second half of the development.
-//
-// Algorithm.  Pad the weights to a power of two with a reject label n of weight
-// aₙ = 2ᴷ − m (K = ⌈log₂ m⌉), so the extended weights a₀,…,aₙ sum to 2ᴷ.  Now read
-// the binary expansion of each aℓ:  aℓ/2ᴷ = 0.b₁b₂…bₖ, and label ℓ gets a leaf at
-// level c (1 ≤ c ≤ K) exactly when bit (K−c) of aℓ is 1, i.e. b_c = 1.  A leaf at
-// level c carries mass 2⁻ᶜ, so label ℓ's leaves sum to Σ_c b_c·2⁻ᶜ = aℓ/2ᴷ — its
-// target share.  h[c] is the number of labels present at level c, and lab[c] lists
-// them (ascending label order). 
-//
-// Verification.  At the spec level `built_ddg(pctx)` models the construction from an
-// abstract weight context `pctx`:
-//  h(c) = pcnt = #labels, lab(c,·) = sel = the present labels in order.  
-// `lemma_built_valid` proves that, under `pctx.wf()` (aₙ = 2ᴷ − m, m = Σ aᵢ ≥ 1, every aᵢ < 2ᴷ), 
-// `built_ddg(pctx)` satisfies `valid_ddg`.
-// Two facts carry it:
-//  · Per-label encoding:  w_of_lbl_to_l(ℓ,K) = Σ_c count(c,ℓ)·2^{K−c} = aℓ — exactly the
-//    binary reconstruction Σ_c b_c·2^{K−c} = aℓ (lemma_built_wenc / topbits).
-//  · The tree is well-formed:  the "filled-cells" identity Σ_c h(c)·2^{K−c} = Σ_ℓ aℓ
-//    = 2ᴷ (every base cell covered once) forces the running node count
-//    N(c) = 2·(N(c−1) − h(c−1)) to stay ≥ h(c) and hit 0 at level K+1 — so each level
-//    has enough nodes for its leaves and the tree closes exactly (lemma_n_filled,
-//    lemma_h_le_n, lemma_built_close).
-// The executable `fldr_preprocess(weights, m, K)` fills the Vec-backed `h`/`lab`
-// level by level — each (label, level) membership test is a `bit` = `pow2_exec`
-// division — and `lemma_preprocess_valid` transfers `valid_ddg(built_ddg)` to the table's 
-// `view()` through the agreement lemmas, discharging `wf()`.
+//! # FLDR — the Fast Loaded Dice Roller: sample outcome i ∈ {0,…,n−1} with probability
+//!  # aᵢ/m  (m = Σ aᵢ),  using only fair coin flips.
+//!
+//! References:
+//!   - [AISTATS 20]  https://arxiv.org/abs/2003.03830   (the FLDR paper)
+//!   - [FM 26]       https://arxiv.org/abs/2509.06410   (verification using distr. inv.)
+//! Rust implementations: 
+//!    https://github.com/ryco117/fast_loaded_dice_roller
+//!    https://github.com/vks/rand/blob/fldr/rand_distr/src/weighted_fldr.rs
+//!
+//! Algoirthm:
+//! Preprocess the integer weights a₀,…,a_{n−1} (total m, K = ⌈log₂ m⌉) into the
+//! Knuth–Yao DDG (discrete-distribution-generating tree): a binary tree whose leaves
+//! are labelled by outcomes, plus a reject label `n` carrying weight 2ᴷ − m so the
+//! total leaf mass is 2ᴷ.  A leaf at depth c has probability 2⁻ᶜ, and the leaves of
+//! outcome i carry total mass aᵢ/2ᴷ.  The extra `reject` label is the value `n` itself
+//! (the real outcomes are 0..n−1, so `n` is "none of them"); its leaves hold the slack
+//! mass 2ᴷ − m that pads the total up to a power of two.
+//!
+//! Sampling walks down the tree one coin flip at a time, tracking the current depth `c`
+//! and the position `d` of the current node.
+//! At each level the `h[c]` leaves come first (positions 0..h[c]−1) and the internal nodes
+//! follow (positions ≥ h[c]).  On a real leaf it outputs that leaf's label; on a reject
+//! leaf (label = `n`) it discards the walk and starts over at the root:
+//!
+//!   c ← 0; d ← 0                                    // start at the root (level 0, position 0)
+//!   loop {
+//!       b ← flip();  c ← c+1;  d ← 2d + b           // descend one level (left/right child)
+//!       if d < h[c] {                               // d is one of the h[c] leaves here
+//!           if lab[c][d] ≠ n { return lab[c][d] }   // real outcome → accept and return it
+//!           else { d ← 0; c ← 0 }                   // reject (label n) → restart at the root
+//!       } else { d ← d − h[c] }                     // internal node → renumber and keep going
+//!   }
+//! `h[c]` = number of leaves at level c;  `lab[c][d]` = label (an outcome in 0..n−1, or the
+//! reject label n) of the d-th leaf at level c.
+//!
+//! We prove the Expectation-Preservation Rule for the loaded distribution:
+//!
+//!            ε ≥ Σ_{i<n} (aᵢ/m)·ℰ(i)
+//!   ───────────────────────────────────────────────
+//!   [{ ↯(ε) }] sample_fldr(weights) [{ i. ↯(ℰ(i)) }]
+//!
+//!  The credit distributions are similar to `fdr.rs`
+//!
+//!  (1) VALUE — the conditional expectation  fldr_f(c,d,k) = E[ℰ(out) | (c,d)] using
+//!      ≤ k flips (0 if the coins runs out before accepting):
+//!        fldr_f(c,d,0) = 0
+//!        fldr_f(c,d,k) = ½·( fldr_g(c+1,2d,k−1) + fldr_g(c+1,2d+1,k−1) )
+//!        fldr_g(c,d,k) = ℰ(lab[c][d])      if d < h[c], lab[c][d] < n   (accept)
+//!                      = fldr_f(0,0,k)     if d < h[c], lab[c][d] = n   (reject, restart)
+//!                      = fldr_f(c,d−h[c],k) if d ≥ h[c]                 (internal, descend)
+//!      Correctness: fldr_f(0,0,k) ≤ Σ(aᵢ/m)ℰ(i).  Because a reject restarts at the
+//!      root with *strictly smaller* fuel (every leaf is at depth ≥ 1), this follows
+//!      by induction on k — no limits — from the DDG leaf-sum identity
+//!      Σ_{accept leaves} 2⁻ᶜ·ℰ(lab) = Σ(aᵢ/2ᴷ)ℰ(i) and Σ_{reject leaves} 2⁻ᶜ = 1−m/2ᴷ.
+//!
+//!  (2) TERMINATION — the failure probability  fldr_fail_f(c,d,k) = 1 − P(accept within
+//!      k flips)  (independent of ℰ): same shape, accept ↦ 0, k = 0 ↦ 1.  One full
+//!      root-to-leaf traversal (≤ K flips) rejects with probability ρ = (2ᴷ−m)/2ᴷ < 1,
+//!      so fldr_fail_f(0,0,jK) ≤ ρʲ → 0.
+//!
+//! ── Preprocessing: weights → DDG table ────────────────────────────────────────
+//! The sampler above is funded by a *validated* table; building and validating that
+//! table is the second half of the development.
+//!
+//! Algorithm.  Pad the weights to a power of two with a reject label n of weight
+//! aₙ = 2ᴷ − m (K = ⌈log₂ m⌉), so the extended weights a₀,…,aₙ sum to 2ᴷ.  Now read
+//! the binary expansion of each aℓ:  aℓ/2ᴷ = 0.b₁b₂…bₖ, and label ℓ gets a leaf at
+//! level c (1 ≤ c ≤ K) exactly when bit (K−c) of aℓ is 1, i.e. b_c = 1.  A leaf at
+//! level c carries mass 2⁻ᶜ, so label ℓ's leaves sum to Σ_c b_c·2⁻ᶜ = aℓ/2ᴷ — its
+//! target share.  h[c] is the number of labels present at level c, and lab[c] lists
+//! them (ascending label order). 
+//!
+//! Verification.  At the spec level `built_ddg(pctx)` models the construction from an
+//! abstract weight context `pctx`:
+//!  h(c) = pcnt = #labels, lab(c,·) = sel = the present labels in order.  
+//! `lemma_built_valid` proves that, under `pctx.wf()` (aₙ = 2ᴷ − m, m = Σ aᵢ ≥ 1, every aᵢ < 2ᴷ), 
+//! `built_ddg(pctx)` satisfies `valid_ddg`.
+//! Two facts carry it:
+//!  · Per-label encoding:  w_of_lbl_to_l(ℓ,K) = Σ_c count(c,ℓ)·2^{K−c} = aℓ — exactly the
+//!    binary reconstruction Σ_c b_c·2^{K−c} = aℓ (lemma_built_wenc / topbits).
+//!  · The tree is well-formed:  the "filled-cells" identity Σ_c h(c)·2^{K−c} = Σ_ℓ aℓ
+//!    = 2ᴷ (every base cell covered once) forces the running node count
+//!    N(c) = 2·(N(c−1) − h(c−1)) to stay ≥ h(c) and hit 0 at level K+1 — so each level
+//!    has enough nodes for its leaves and the tree closes exactly (lemma_n_filled,
+//!    lemma_h_le_n, lemma_built_close).
+//! The executable `fldr_preprocess(weights, m, K)` fills the Vec-backed `h`/`lab`
+//! level by level — each (label, level) membership test is a `bit` = `pow2_exec`
+//! division — and `lemma_preprocess_valid` transfers `valid_ddg(built_ddg)` to the table's 
+//! `view()` through the agreement lemmas, discharging `wf()`.
 
 use vstd::prelude::*;
 

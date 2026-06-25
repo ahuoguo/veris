@@ -1,24 +1,24 @@
-// Geometric Distribution with BigNums and Distribution Credit
-//
-// This extends geo.rs with:
-// 1. dashu UBig for unbounded output (geo.rs uses u64 with wrapping_add)
-// 2. A distribution credit via the expectation rule:
-// https://github.com/logsem/clutch/blob/cpp26-distributions/theories/eris/lib/sampling/geometric/implementation.v#L109-L116
-//
-//   ε ≥ Σ_{i=0}^∞ (1/2)^(i+1) * ℰ(i)
-//   ------------------------------------
-//   [{ ↯(ε) }] geo() [{ v. ↯(ℰ(v)) }]
-//
-// The weight (1/2)^(i+1) is the probability of outcome i (i tails then heads).
-// After geo() returns v, we own error credit ℰ(v).
-//
-// The input credit ε is split into two parts:
-// - Distribution credit (ε - slack): covers the geometric series Σ (1/2)^(i+1) * ℰ(i)
-// - Slack credit: reserved for termination, doubles at each recursive step
-//
-// Representing infinite sums in Verus:
-// We express "ε ≥ Σ_{i=0}^∞ (1/2)^(i+1) * ℰ(i)" as a universal bound over all
-// finite partial sums: ∀ n. ε ≥ Σ_{i=0}^{n-1} (1/2)^(i+1) * ℰ(i).
+//! # Geometric Distribution with BigNums and Distributional Spec
+//!
+//! This extends geo.rs with:
+//! 1. dashu UBig for unbounded output (geo.rs uses u64 with wrapping_add)
+//! 2. A distribution credit via the expectation rule:
+//! https://github.com/logsem/clutch/blob/cpp26-distributions/theories/eris/lib/sampling/geometric/implementation.v#L109-L116
+//!
+//!   ε ≥ Σ_{i=0}^∞ (1/2)^(i+1) * ℰ(i)
+//!   ------------------------------------
+//!   [{ ↯(ε) }] geo() [{ v. ↯(ℰ(v)) }]
+//!
+//! The weight (1/2)^(i+1) is the probability of outcome i (i tails then heads).
+//! After geo() returns v, we own error credit ℰ(v).
+//!
+//! The input credit ε is split into two parts:
+//! - Distribution credit (ε - slack): covers the geometric series Σ (1/2)^(i+1) * ℰ(i)
+//! - Slack credit: reserved for termination, doubles at each recursive step
+//!
+//! Representing infinite sums in Verus:
+//! We express "ε ≥ Σ_{i=0}^∞ (1/2)^(i+1) * ℰ(i)" as a universal bound over all
+//! finite partial sums: ∀ n. ε ≥ Σ_{i=0}^{n-1} (1/2)^(i+1) * ℰ(i).
 
 use vstd::prelude::*;
 use random::{UBig, ubig_zero, ubig_succ};
