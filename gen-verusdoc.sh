@@ -18,8 +18,8 @@
 # Output: ./doc/alerus/index.html
 set -e
 
-VERIS="$(cd "$(dirname "$0")" && pwd)"
-DEPS="$VERIS/target/debug/deps"
+ALERUS="$(cd "$(dirname "$0")" && pwd)"
+DEPS="$ALERUS/target/debug/deps"
 
 # Local defaults (a Verus source checkout next to this repo). CI overrides these.
 VERUS="${VERUS:-/Users/byc/Desktop/mpi/verus}"
@@ -33,9 +33,9 @@ case "$(uname)" in
   *) echo "unsupported OS" >&2; exit 1 ;;
 esac
 
-cd "$VERIS"
+cd "$ALERUS"
 
-# The `veris` crate depends on `random` (which re-exports dashu's UBig/IBig/RBig).
+# The `alerus` crate depends on `random` (which re-exports dashu's UBig/IBig/RBig).
 # Build it so rustdoc has the rlib plus its transitive deps in target/debug/deps.
 echo "Building the random dependency..."
 cargo +1.95.0 build -p random
@@ -70,9 +70,9 @@ RUSTC_BOOTSTRAP=1 VERUSDOC=1 "$RUSTDOC" \
   -Zcrate-attr=allow\(internal_features\) \
   -Zcrate-attr=allow\(unused_braces\) \
   -Zproc-macro-backtrace \
-  veris/lib.rs
+  alerus/lib.rs
 
 echo "Running verusdoc post-processor..."
 "$VERUSDOC_BIN"
 
-echo "Documentation generated at $VERIS/doc/alerus/index.html"
+echo "Documentation generated at $ALERUS/doc/alerus/index.html"
