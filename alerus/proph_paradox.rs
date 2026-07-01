@@ -6,8 +6,12 @@
 //!     let p = new proph
 //!     let x = rand 1 in
 //!     resolve p to x;;
-//!     () ()                  (* crash *)
+//!     () ()
 //!
+
+// This file intentionally uses the banned `vstd::proph::Prophecy` to exhibit
+// the unsoundness
+#![allow(clippy::disallowed_types)]
 
 #[cfg(verus_keep_ghost)]
 use vstd::resource::pcm::*;

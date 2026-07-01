@@ -26,3 +26,6 @@ unexpected_cfgs = { level = "warn", check-cfg = [
     'cfg(verus_only)',
     'cfg(verus_keep_ghost)',
 ] }
+
+[lints.clippy]
+disallowed_types = "deny"
